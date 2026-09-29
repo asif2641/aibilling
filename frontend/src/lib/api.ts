@@ -32,10 +32,15 @@ class ApiClient {
       headers["Content-Type"] = "application/json";
     }
 
-    const res = await fetch(`${API_BASE}${endpoint}`, {
-      ...options,
-      headers,
-    });
+    let res: Response;
+    try {
+      res = await fetch(`${API_BASE}${endpoint}`, {
+        ...options,
+        headers,
+      });
+    } catch (netErr: any) {
+      throw new Error(`Cannot connect to backend server at "${API_BASE}". Ensure the backend is running and NEXT_PUBLIC_API_URL is configured.`);
+    }
 
     if (res.status === 401 && typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
       this.clearToken();
@@ -60,10 +65,15 @@ class ApiClient {
 
   // Auth
   async login(formData: FormData): Promise<{ access_token: string; user: any }> {
-    const res = await fetch(`${API_BASE}/auth/login`, {
-      method: "POST",
-      body: formData,
-    });
+    let res: Response;
+    try {
+      res = await fetch(`${API_BASE}/auth/login`, {
+        method: "POST",
+        body: formData,
+      });
+    } catch (netErr: any) {
+      throw new Error(`Cannot connect to backend server at "${API_BASE}". Please deploy your backend and set NEXT_PUBLIC_API_URL in Vercel.`);
+    }
     if (!res.ok) {
       const err = await res.json();
       throw new Error(err.detail || "Login failed");
