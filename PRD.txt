@@ -1,0 +1,3069 @@
+# AI BILL INTELLIGENCE PLATFORM
+
+## Master Product Requirements Document (PRD)
+
+**Document Version:** 1.0
+**Product Status:** New Product / MVP
+**Document Purpose:** Master development specification for Antigravity
+**Primary Target Market:** Pakistan initially, with architecture ready for international expansion
+**Product Type:** AI-powered SaaS Web Application
+**Primary Function:** Convert bills/invoices/receipts from images or PDFs into verified, structured, searchable financial data.
+
+---
+
+# 1. PRODUCT VISION
+
+Build a modern AI-powered web application that allows a user to upload almost any printed bill, invoice, receipt, or purchase document and automatically:
+
+1. Understand the document.
+2. Identify the business/vendor.
+3. Identify the customer when available.
+4. Extract invoice/receipt information.
+5. Extract line items.
+6. Extract prices, quantities, taxes, discounts and totals.
+7. Detect the document type.
+8. Preserve the original document.
+9. Assign confidence scores to extracted information.
+10. Validate extracted information using business rules.
+11. Highlight uncertain information.
+12. Allow the user to review and correct the extracted data.
+13. Store the verified information in a structured database.
+14. Allow searching and filtering by date, business, customer, amount, category and other fields.
+15. Generate weekly, monthly, yearly and custom reports.
+16. Provide spending/business insights.
+17. Eventually allow users to ask natural-language questions about their bills.
+
+The system must NOT depend on fixed invoice templates.
+
+Different businesses may have completely different invoice designs.
+
+The AI must understand the semantic meaning of the document rather than relying on fixed screen coordinates or one template per business.
+
+---
+
+# 2. CORE PRODUCT PRINCIPLE
+
+The fundamental product workflow is:
+
+UPLOAD → UNDERSTAND → EXTRACT → VALIDATE → VERIFY → STORE → SEARCH → ANALYZE
+
+The product must prioritize:
+
+* Accuracy
+* Transparency
+* User trust
+* Data integrity
+* Security
+* Simplicity
+* Extensibility
+* Performance
+
+The system must never silently invent information.
+
+If information does not exist on the document, the value must remain null/unknown.
+
+Example:
+
+Correct:
+
+Customer Phone: Not Found
+
+Incorrect:
+
+Customer Phone: 03001234567
+
+when that number was not present on the document.
+
+---
+
+# 3. PRODUCT NAME
+
+Working product name:
+
+**AI Bill Intelligence**
+
+The architecture must allow the product name and branding to be changed later without changing the application architecture.
+
+Avoid hard-coding the product name throughout the application.
+
+---
+
+# 4. TARGET USERS
+
+## 4.1 Primary MVP Users
+
+### Individual users
+
+People who want to:
+
+* Digitize paper bills
+* Track expenses
+* Search old bills
+* Understand spending
+* Maintain purchase history
+* Generate reports
+
+### Small business owners
+
+People who want to:
+
+* Digitize supplier bills
+* Track purchases
+* Maintain expense records
+* Search invoices
+* Monitor spending
+* Generate reports
+
+### Freelancers / professionals
+
+People who want to:
+
+* Store business expenses
+* Track purchases
+* Maintain records
+* Export data for accounting
+
+---
+
+# 5. INITIAL MARKET FOCUS
+
+Initial localization should focus on Pakistan.
+
+The application should support:
+
+* PKR
+* Pakistani phone numbers
+* English
+* Urdu/English mixed documents where technically possible
+* Common Pakistani invoice/receipt formats
+* Tax-related fields such as GST where present
+* NTN/STRN where present
+* Pakistani date/number formats
+* CSV/Excel export
+
+However, do NOT hard-code the entire system around Pakistan.
+
+The data model must support:
+
+* Multiple currencies
+* Multiple countries
+* Multiple tax systems
+* Different date formats
+* Different languages
+* Different invoice structures
+
+---
+
+# 6. PRODUCT SCOPE
+
+## MVP MUST INCLUDE
+
+### Authentication
+
+* Registration
+* Login
+* Logout
+* Password reset
+* Session management
+* User profile
+* Basic account settings
+
+### Document upload
+
+Support:
+
+* JPG
+* JPEG
+* PNG
+* WEBP
+* PDF
+
+Future-ready:
+
+* HEIC
+* TIFF
+* Camera capture
+* Mobile upload
+
+### AI extraction
+
+Extract information such as:
+
+#### Business/vendor
+
+* Business name
+* Address
+* Phone
+* Email
+* Website
+* Tax ID
+* NTN
+* STRN
+* Branch
+* Store ID
+
+#### Invoice
+
+* Invoice number
+* Receipt number
+* Order number
+* Invoice date
+* Due date
+* Currency
+* Payment method
+
+#### Customer
+
+* Customer name
+* Customer phone
+* Customer email
+* Customer address
+* Customer ID
+
+#### Line items
+
+* Product name
+* Description
+* SKU/product code
+* Quantity
+* Unit
+* Unit price
+* Discount
+* Tax
+* Line total
+
+#### Financial totals
+
+* Subtotal
+* Discount
+* Tax
+* Service charge
+* Shipping
+* Other charges
+* Rounding
+* Total
+* Amount paid
+* Balance/due
+
+#### Other available information
+
+* Cashier
+* POS number
+* Table number
+* Branch
+* Payment reference
+* Notes
+* Terms
+* QR-related information where technically extractable
+
+---
+
+# 7. DYNAMIC DOCUMENT MODEL
+
+The system must NOT require every invoice to contain the same fields.
+
+Example:
+
+A restaurant bill may contain:
+
+* Table
+* Waiter
+* Service charge
+
+A pharmacy invoice may contain:
+
+* Medicine
+* Batch
+* Expiry
+* Doctor
+* Patient
+
+An electronics invoice may contain:
+
+* Serial number
+* Warranty
+* Model number
+
+Therefore use:
+
+## Standard fields
+
+For common invoice information.
+
+AND
+
+## Dynamic/custom fields
+
+For document-specific information.
+
+Example:
+
+```json
+{
+  "custom_fields": {
+    "doctor": "Dr. Ahmed",
+    "patient": "Muhammad Ali",
+    "batch_number": "B12345",
+    "expiry_date": "2027-04"
+  }
+}
+```
+
+Do not alter the database schema every time a new document type appears.
+
+---
+
+# 8. SUPPORTED DOCUMENT TYPES
+
+The system should automatically classify uploaded documents.
+
+Possible classifications:
+
+* Invoice
+* Retail receipt
+* Restaurant receipt
+* Pharmacy bill
+* Utility bill
+* Purchase order
+* Sales invoice
+* Expense receipt
+* Service invoice
+* Wholesale invoice
+* Tax invoice
+* Other financial document
+* Unknown
+
+The user must be able to manually change the classification if AI classification is incorrect.
+
+---
+
+# 9. USER JOURNEY
+
+## Step 1 — Login
+
+User logs in.
+
+## Step 2 — Dashboard
+
+User sees:
+
+* Total bills
+* Total spending
+* This week's spending
+* This month's spending
+* Recent bills
+* Top vendors
+* Spending categories
+
+## Step 3 — Upload
+
+User clicks:
+
+**Upload Bill**
+
+User selects:
+
+* Image
+* PDF
+* Multiple documents
+
+## Step 4 — Processing
+
+Show a clear processing state:
+
+```text
+Uploading...
+Preparing document...
+Reading document...
+Understanding layout...
+Extracting information...
+Validating information...
+Almost done...
+```
+
+Do not show fake progress percentages.
+
+If actual progress is unavailable, use meaningful processing stages instead.
+
+## Step 5 — AI extraction
+
+System processes the document.
+
+## Step 6 — Verification
+
+Display:
+
+LEFT:
+Original document.
+
+RIGHT:
+Extracted information.
+
+## Step 7 — User correction
+
+User can edit any field.
+
+## Step 8 — Approve
+
+User clicks:
+
+**Approve & Save**
+
+## Step 9 — Database
+
+Verified information is saved.
+
+## Step 10 — Results
+
+User sees:
+
+* Invoice details
+* Items
+* Vendor
+* Customer
+* Totals
+* Original document
+* Processing information
+
+---
+
+# 10. DOCUMENT REVIEW SCREEN
+
+This is one of the most important screens in the product.
+
+Desktop layout:
+
+```text
+-----------------------------------------------------
+| Original Document | Extracted Information         |
+|                   |                               |
+|                   | Business                      |
+|                   | ABC Store                     |
+|                   |                               |
+|                   | Invoice Number               |
+|                   | INV-1025                     |
+|                   |                               |
+|                   | Date                          |
+|                   | 25/09/2026                   |
+|                   |                               |
+|                   | Customer                      |
+|                   | Ali                           |
+|                   |                               |
+|                   | Items                         |
+|                   | Milk   2 × 250 = 500         |
+|                   | Bread  1 × 180 = 180         |
+|                   |                               |
+|                   | Total                         |
+|                   | Rs. 2,183                    |
+|                   |                               |
+|                   | [Approve & Save]             |
+-----------------------------------------------------
+```
+
+Mobile:
+
+The layout should become vertically stacked.
+
+---
+
+# 11. SOURCE EVIDENCE
+
+Every extracted field should ideally retain information about where it came from.
+
+Example:
+
+```json
+{
+  "field": "invoice_total",
+  "value": 2183,
+  "confidence": 0.99,
+  "source_text": "Total Rs. 2,183",
+  "source_region": {
+    "page": 1,
+    "x": 420,
+    "y": 720,
+    "width": 180,
+    "height": 35
+  }
+}
+```
+
+When supported by the extraction provider, clicking an extracted field should highlight its corresponding area in the original document.
+
+This creates user trust.
+
+---
+
+# 12. CONFIDENCE SYSTEM
+
+Every AI-extracted field should have a confidence value where technically possible.
+
+Example:
+
+```text
+Business Name      99%
+Invoice Date       98%
+Invoice Number     97%
+Customer Name      72%
+Phone Number       51%
+Total              99%
+```
+
+Confidence levels:
+
+### High
+
+90–100%
+
+### Medium
+
+70–89%
+
+### Low
+
+0–69%
+
+These thresholds must be configurable.
+
+Do not treat confidence as absolute truth.
+
+A field can have high AI confidence but still fail a business-rule validation.
+
+---
+
+# 13. VERIFICATION SYSTEM
+
+The system should identify fields requiring user attention.
+
+Example:
+
+```text
+3 fields need verification.
+
+Customer Phone     ⚠
+Invoice Date       ✓
+Invoice Number     ✓
+Total              ✓
+Tax                ⚠
+Customer Name      ⚠
+```
+
+The user should be able to:
+
+* Edit
+* Accept
+* Ignore
+* Mark as unavailable
+
+Do not force users to fill information that does not exist.
+
+---
+
+# 14. VALIDATION ENGINE
+
+After AI extraction, run deterministic validation.
+
+Examples:
+
+### Quantity calculation
+
+```text
+quantity × unit_price ≈ line_total
+```
+
+### Invoice calculation
+
+```text
+subtotal
+- discount
++ tax
++ additional charges
+≈ total
+```
+
+### Item count
+
+If 5 line items were extracted:
+
+```text
+item_count = 5
+```
+
+### Date validation
+
+Date should be a valid date.
+
+### Currency validation
+
+Currency should be normalized.
+
+### Negative values
+
+Unexpected negative totals should trigger review.
+
+### Duplicate detection
+
+Compare:
+
+* Vendor
+* Invoice number
+* Date
+* Total
+* File hash
+
+and flag possible duplicates.
+
+The system must NOT automatically delete suspected duplicates.
+
+---
+
+# 15. EXTRACTION STATUS
+
+Each document should have a lifecycle.
+
+Possible statuses:
+
+```text
+UPLOADED
+PROCESSING
+EXTRACTED
+REVIEW_REQUIRED
+VERIFIED
+FAILED
+ARCHIVED
+```
+
+Example:
+
+```text
+Uploaded
+   ↓
+Processing
+   ↓
+Extracted
+   ↓
+Review Required
+   ↓
+Verified
+```
+
+---
+
+# 16. ERROR HANDLING
+
+If AI extraction fails:
+
+Show:
+
+> We couldn't confidently read this document.
+
+Options:
+
+* Retry
+* Upload another image
+* Rotate/crop document
+* Manually enter information
+
+Do not show technical stack traces to users.
+
+Technical errors should be logged internally.
+
+---
+
+# 17. IMAGE PREPROCESSING
+
+Before extraction, the system should consider:
+
+* Rotation correction
+* Deskewing
+* Noise reduction
+* Contrast improvement
+* Cropping
+* Resolution checks
+* Blur detection
+* Orientation detection
+
+If image quality is too poor:
+
+```text
+This image may be difficult to read.
+
+Try:
+• Taking a clearer photo
+• Avoiding shadows
+• Keeping the complete bill inside the frame
+• Using better lighting
+```
+
+---
+
+# 18. MULTI-PAGE PDF
+
+The system must support multi-page PDFs.
+
+Each page must be processed.
+
+The invoice should remain one logical document unless the system determines otherwise.
+
+Store:
+
+* Page count
+* Page-level extraction
+* Page-level evidence
+
+---
+
+# 19. MULTIPLE DOCUMENT UPLOAD
+
+MVP can support multiple uploads.
+
+Example:
+
+```text
+Upload 10 bills
+       ↓
+10 processing jobs
+       ↓
+10 extraction results
+```
+
+Each document should have an independent status.
+
+Do not allow one failed document to block the remaining documents.
+
+---
+
+# 20. DASHBOARD
+
+Dashboard should contain:
+
+## Summary cards
+
+* Total Bills
+* Total Spending
+* This Week
+* This Month
+
+## Recent bills
+
+Columns:
+
+* Date
+* Vendor
+* Invoice
+* Total
+* Status
+
+## Spending by category
+
+Chart.
+
+## Spending by vendor
+
+Chart/list.
+
+## Weekly trend
+
+Chart.
+
+## Processing status
+
+* Verified
+* Review required
+* Processing
+* Failed
+
+---
+
+# 21. INVOICE LIST
+
+Columns:
+
+* Date
+* Vendor
+* Invoice number
+* Customer
+* Total
+* Category
+* Status
+* Created date
+
+Actions:
+
+* View
+* Edit
+* Delete/archive
+* Download original
+* Export
+
+Filters:
+
+* Date
+* Vendor
+* Customer
+* Amount
+* Category
+* Status
+* Document type
+* Payment method
+
+Sorting:
+
+* Newest
+* Oldest
+* Highest amount
+* Lowest amount
+* Vendor
+* Invoice number
+
+Pagination required.
+
+Do not load thousands of records into the browser simultaneously.
+
+---
+
+# 22. GLOBAL SEARCH
+
+Search should support:
+
+```text
+ABC Store
+INV-1025
+Ali
+0300
+Milk
+Rs. 500
+```
+
+Search across relevant structured fields.
+
+Future version:
+
+Semantic search / AI search.
+
+Example:
+
+> Bills where I bought milk in September.
+
+---
+
+# 23. VENDOR MANAGEMENT
+
+Create a vendor profile automatically when appropriate.
+
+Example:
+
+```text
+ABC Super Store
+
+Total Bills: 27
+Total Spending: Rs. 82,450
+Last Purchase: 25 Sep 2026
+Average Bill: Rs. 3,053
+```
+
+Vendor page:
+
+* Bills
+* Total spending
+* Purchase history
+* Common items
+* Contact information
+* Address
+* Tax information
+
+Allow user to merge duplicate vendors.
+
+Example:
+
+```text
+ABC Store
+ABC Super Store
+ABC Supermarket
+
+→ Merge
+```
+
+Do not automatically merge without sufficient confidence or user confirmation.
+
+---
+
+# 24. CUSTOMER MANAGEMENT
+
+When customer information exists, maintain customer records.
+
+Customer:
+
+* Name
+* Phone
+* Email
+* Address
+* Customer ID
+
+Customer profile:
+
+* Total invoices
+* Total purchases
+* Last purchase
+* Purchase history
+
+This feature should work even when customer information is unavailable on many documents.
+
+---
+
+# 25. CATEGORY SYSTEM
+
+Categories should be configurable.
+
+Default examples:
+
+* Grocery
+* Restaurant
+* Medicine
+* Electronics
+* Clothing
+* Transport
+* Utilities
+* Office
+* Education
+* Household
+* Other
+
+AI can suggest a category.
+
+User can change it.
+
+Never treat AI category prediction as authoritative.
+
+---
+
+# 26. REPORTING
+
+## Weekly report
+
+Show:
+
+* Total bills
+* Total spending
+* Average bill
+* Highest bill
+* Top vendors
+* Categories
+* Comparison with previous period
+
+## Monthly report
+
+Show:
+
+* Total spending
+* Bill count
+* Average invoice
+* Vendor breakdown
+* Category breakdown
+* Daily trend
+* Highest transactions
+
+## Yearly report
+
+Show:
+
+* Monthly spending
+* Total annual spending
+* Vendor ranking by amount
+* Category distribution
+* Monthly comparison
+
+## Custom report
+
+User selects:
+
+```text
+From: 01/09/2026
+To: 25/09/2026
+```
+
+Then applies filters.
+
+---
+
+# 27. EXPORT
+
+Support:
+
+### CSV
+
+### Excel/XLSX
+
+### PDF report
+
+Export should respect active filters.
+
+Example:
+
+If user filters:
+
+```text
+Vendor = ABC
+September 2026
+```
+
+export only matching records.
+
+---
+
+# 28. WEEKLY SUMMARY
+
+Provide a weekly summary.
+
+Example:
+
+```text
+Your Weekly Bill Summary
+
+23 Sep – 29 Sep
+
+Bills: 18
+
+Total Spending:
+Rs. 27,450
+
+Top Vendor:
+ABC Super Store
+
+Largest Bill:
+Rs. 8,500
+
+Top Category:
+Groceries
+```
+
+This should eventually support:
+
+* In-app notification
+* Email
+* Optional WhatsApp integration
+
+Do not build WhatsApp automation into MVP unless it is architecturally required.
+
+---
+
+# 29. AI BILL ASSISTANT — PHASE 2
+
+Users should eventually be able to ask:
+
+> How much did I spend this month?
+
+> How much did I spend at ABC Store?
+
+> Show my pharmacy expenses.
+
+> What did I buy last week?
+
+> Which vendor did I spend the most with?
+
+> Show bills above Rs. 10,000.
+
+The AI must answer using verified database information.
+
+It must NOT fabricate financial information.
+
+Example:
+
+```text
+You spent Rs. 18,450 across 9 restaurant bills
+between 1 September and 30 September 2026.
+```
+
+The answer should provide links to the relevant records where possible.
+
+---
+
+# 30. AI ASSISTANT SECURITY
+
+The AI assistant must NOT receive unrestricted database access.
+
+Use a controlled query layer.
+
+Example:
+
+```text
+User Question
+      ↓
+Intent Detection
+      ↓
+Allowed Query Builder
+      ↓
+Database
+      ↓
+Verified Results
+      ↓
+AI Response
+```
+
+Never allow an LLM to directly execute arbitrary SQL in production.
+
+---
+
+# 31. DATABASE DESIGN
+
+Use PostgreSQL.
+
+Core tables:
+
+```text
+users
+user_profiles
+subscriptions
+documents
+document_pages
+document_files
+extraction_jobs
+extraction_results
+extraction_fields
+vendors
+vendor_aliases
+customers
+products
+categories
+invoices
+invoice_items
+invoice_taxes
+payments
+reports
+audit_logs
+notifications
+```
+
+---
+
+# 32. USER TABLE
+
+Minimum:
+
+```text
+id
+email
+password_hash
+status
+created_at
+updated_at
+last_login_at
+```
+
+Do not store plaintext passwords.
+
+Use a secure password hashing mechanism.
+
+---
+
+# 33. DOCUMENT TABLE
+
+```text
+id
+user_id
+file_id
+document_type
+status
+original_filename
+mime_type
+file_size
+page_count
+processing_started_at
+processing_completed_at
+created_at
+updated_at
+```
+
+---
+
+# 34. INVOICE TABLE
+
+```text
+id
+user_id
+document_id
+vendor_id
+customer_id
+invoice_number
+receipt_number
+order_number
+invoice_date
+due_date
+currency
+subtotal
+discount
+tax
+service_charge
+shipping
+other_charges
+total
+amount_paid
+balance_due
+payment_method
+category_id
+confidence_score
+verification_status
+created_at
+updated_at
+```
+
+---
+
+# 35. INVOICE ITEM TABLE
+
+```text
+id
+invoice_id
+product_id
+product_name
+description
+sku
+quantity
+unit
+unit_price
+discount
+tax
+line_total
+confidence_score
+created_at
+updated_at
+```
+
+---
+
+# 36. EXTRACTION FIELD TABLE
+
+Store field-level information.
+
+```text
+id
+document_id
+field_name
+field_value
+normalized_value
+confidence
+source_text
+page_number
+bounding_box
+validation_status
+user_verified
+created_at
+updated_at
+```
+
+Bounding box:
+
+```text
+x
+y
+width
+height
+```
+
+---
+
+# 37. AUDIT LOG
+
+Track important changes.
+
+Examples:
+
+```text
+Document uploaded
+AI extraction completed
+Field changed
+Invoice verified
+Invoice deleted
+Vendor merged
+Report generated
+```
+
+Store:
+
+* User
+* Action
+* Entity
+* Entity ID
+* Timestamp
+* Before value where appropriate
+* After value where appropriate
+
+This is important for financial data integrity.
+
+---
+
+# 38. FILE STORAGE
+
+Do not store large document binaries directly in PostgreSQL.
+
+Use object storage.
+
+Possible providers:
+
+* AWS S3
+* Cloudflare R2
+* Google Cloud Storage
+
+Create a storage abstraction so the provider can be changed later.
+
+Database stores:
+
+```text
+storage_provider
+storage_key
+original_filename
+mime_type
+size
+checksum
+```
+
+---
+
+# 39. AI/DOCUMENT PROCESSING ARCHITECTURE
+
+Do not hard-code the application directly to one AI provider.
+
+Create provider interfaces.
+
+Example:
+
+```text
+DocumentAIProvider
+```
+
+Possible implementations:
+
+```text
+GoogleDocumentAIProvider
+AWSTextractProvider
+VisionLLMProvider
+```
+
+The application should be able to change providers without rewriting the entire extraction system.
+
+---
+
+# 40. RECOMMENDED EXTRACTION PIPELINE
+
+```text
+Upload
+   ↓
+File Validation
+   ↓
+Virus/Security Check
+   ↓
+Image/PDF Preprocessing
+   ↓
+Document Classification
+   ↓
+OCR / Document AI
+   ↓
+Layout Analysis
+   ↓
+Semantic Extraction
+   ↓
+Normalization
+   ↓
+Validation
+   ↓
+Confidence Calculation
+   ↓
+Duplicate Detection
+   ↓
+Human Review
+   ↓
+Verified Database Record
+```
+
+---
+
+# 41. STRUCTURED AI OUTPUT
+
+AI extraction must return structured JSON.
+
+Example:
+
+```json
+{
+  "document_type": "invoice",
+  "vendor": {
+    "name": "ABC Super Store",
+    "phone": null,
+    "address": "Lahore"
+  },
+  "customer": {
+    "name": "Ali",
+    "phone": "03001234567"
+  },
+  "invoice": {
+    "number": "INV-1025",
+    "date": "2026-09-25",
+    "currency": "PKR"
+  },
+  "items": [
+    {
+      "name": "Milk",
+      "quantity": 2,
+      "unit_price": 250,
+      "line_total": 500
+    }
+  ],
+  "totals": {
+    "subtotal": 1850,
+    "tax": 333,
+    "total": 2183
+  }
+}
+```
+
+The exact schema must be versioned.
+
+---
+
+# 42. NORMALIZATION
+
+Normalize extracted information without destroying the original value.
+
+Example:
+
+Original:
+
+```text
+Rs. 2,183.00
+```
+
+Normalized:
+
+```text
+2183.00
+```
+
+Store both where useful.
+
+Date:
+
+```text
+25/09/2026
+```
+
+Normalized:
+
+```text
+2026-09-25
+```
+
+Phone numbers should be normalized while preserving original representation where appropriate.
+
+---
+
+# 43. DO NOT INVENT DATA
+
+This is a hard requirement.
+
+The AI must not:
+
+* Guess a phone number
+* Guess a customer
+* Guess a missing invoice number
+* Guess a tax amount
+* Guess an item price
+* Guess a date
+* Infer a value as fact when it is not present
+
+Use:
+
+```text
+null
+```
+
+when unavailable.
+
+---
+
+# 44. AI PROMPTING PRINCIPLES
+
+Extraction prompts should explicitly instruct the model:
+
+1. Extract only information present in the document.
+2. Do not invent missing values.
+3. Preserve line-item relationships.
+4. Distinguish subtotal from total.
+5. Distinguish tax from discount.
+6. Preserve currency.
+7. Return null when information is absent.
+8. Return confidence.
+9. Return evidence where available.
+10. Follow the defined JSON schema strictly.
+
+Prompts must be version-controlled.
+
+---
+
+# 45. SECURITY REQUIREMENTS
+
+This product handles potentially sensitive financial information.
+
+Implement:
+
+* HTTPS
+* Secure authentication
+* Password hashing
+* Secure cookies/session handling
+* Authorization checks
+* User-level data isolation
+* Input validation
+* File type validation
+* File size limits
+* Malware/security scanning where appropriate
+* Rate limiting
+* API authentication
+* Secure object-storage access
+* Signed/private file URLs
+* Secrets in environment variables
+* No API keys in frontend
+* Audit logging
+* Secure error handling
+
+A user must NEVER be able to access another user's invoices by changing an ID in a URL or API request.
+
+---
+
+# 46. DATA ISOLATION
+
+Every user-owned record must be associated with the correct user/account.
+
+Example:
+
+```text
+user_id
+```
+
+must be validated server-side.
+
+Never trust:
+
+```text
+user_id
+```
+
+sent from the browser.
+
+Derive identity from the authenticated session/token.
+
+---
+
+# 47. FILE SECURITY
+
+Uploaded files must:
+
+* Have allowed MIME types
+* Have size limits
+* Be renamed internally
+* Not use the original filename as a storage path
+* Be stored privately
+* Be accessed using authorized temporary URLs
+
+Never expose raw storage credentials.
+
+---
+
+# 48. FRONTEND TECHNOLOGY
+
+Recommended:
+
+* Next.js
+* TypeScript
+* Tailwind CSS
+* Accessible component system
+* React Query/TanStack Query where appropriate
+* Form validation
+* Responsive design
+
+Use reusable components.
+
+Avoid giant monolithic React components.
+
+---
+
+# 49. BACKEND TECHNOLOGY
+
+Recommended:
+
+* Python
+* FastAPI
+* Pydantic
+* SQLAlchemy
+* PostgreSQL
+* Background job system
+
+AI/document processing should run asynchronously.
+
+Do NOT make the browser wait on a long synchronous HTTP request.
+
+---
+
+# 50. BACKGROUND PROCESSING
+
+Example:
+
+```text
+POST /documents
+       ↓
+Create document
+       ↓
+Create processing job
+       ↓
+Return job/document ID
+       ↓
+Background worker processes document
+       ↓
+Frontend polls/subscribes for status
+```
+
+Possible states:
+
+```text
+queued
+processing
+completed
+review_required
+failed
+```
+
+---
+
+# 51. API STRUCTURE
+
+Use REST APIs.
+
+Example:
+
+```text
+POST   /api/auth/register
+POST   /api/auth/login
+POST   /api/auth/logout
+
+GET    /api/dashboard
+
+POST   /api/documents
+GET    /api/documents
+GET    /api/documents/{id}
+DELETE /api/documents/{id}
+
+POST   /api/documents/{id}/process
+GET    /api/documents/{id}/status
+
+GET    /api/invoices
+GET    /api/invoices/{id}
+PATCH  /api/invoices/{id}
+DELETE /api/invoices/{id}
+
+GET    /api/vendors
+GET    /api/vendors/{id}
+
+GET    /api/customers
+GET    /api/customers/{id}
+
+GET    /api/reports/weekly
+GET    /api/reports/monthly
+GET    /api/reports/yearly
+GET    /api/reports/custom
+
+GET    /api/search
+```
+
+Exact endpoints may be adjusted during technical architecture, but API conventions must remain consistent.
+
+---
+
+# 52. API DOCUMENTATION
+
+Use OpenAPI/Swagger generated by FastAPI.
+
+Every API should document:
+
+* Request
+* Response
+* Authentication
+* Validation errors
+* Possible status codes
+
+---
+
+# 53. FRONTEND ROUTES
+
+Suggested:
+
+```text
+/login
+/register
+/forgot-password
+
+/dashboard
+
+/invoices
+/invoices/upload
+/invoices/[id]
+/invoices/[id]/review
+
+/vendors
+/vendors/[id]
+
+/customers
+/customers/[id]
+
+/reports
+/reports/weekly
+/reports/monthly
+/reports/yearly
+
+/search
+
+/settings
+/settings/profile
+/settings/security
+/settings/preferences
+```
+
+---
+
+# 54. DESIGN REQUIREMENTS
+
+The UI should feel like a professional SaaS product.
+
+Characteristics:
+
+* Clean
+* Modern
+* Minimal
+* Trustworthy
+* Professional
+* Fast
+* Mobile responsive
+* Easy for non-technical users
+
+Avoid:
+
+* Excessive gradients
+* Excessive animations
+* Cluttered dashboards
+* Tiny text
+* Excessive cards
+* Unnecessary decorative elements
+
+The document review screen is more important than visual decoration.
+
+---
+
+# 55. RESPONSIVE DESIGN
+
+Must support:
+
+### Desktop
+
+Primary productivity experience.
+
+### Tablet
+
+Fully usable.
+
+### Mobile
+
+Users must be able to:
+
+* Login
+* Upload bills
+* View processing status
+* Review extracted data
+* Edit fields
+* Save
+* Search bills
+* View reports
+
+Mobile upload/camera capture should be considered in architecture even if camera capture is implemented after MVP.
+
+---
+
+# 56. ACCESSIBILITY
+
+Follow good accessibility practices:
+
+* Keyboard navigation
+* Proper labels
+* Focus states
+* Semantic HTML
+* Screen-reader-friendly forms
+* Sufficient contrast
+* Accessible error messages
+* Do not rely solely on color to indicate status
+
+---
+
+# 57. PERFORMANCE
+
+Target:
+
+* Fast initial dashboard load
+* Paginated data
+* Lazy loading
+* Optimized images
+* Background document processing
+* Cached frequently used data
+* Efficient database indexes
+
+Never load the original full-resolution document unnecessarily.
+
+---
+
+# 58. DATABASE INDEXING
+
+Indexes should exist for commonly searched fields such as:
+
+```text
+user_id
+invoice_date
+vendor_id
+customer_id
+invoice_number
+total
+status
+created_at
+```
+
+Search strategy should be evaluated during implementation.
+
+---
+
+# 59. DUPLICATE DETECTION
+
+Detect possible duplicates using combinations of:
+
+* File checksum
+* Invoice number
+* Vendor
+* Date
+* Total
+
+Example:
+
+```text
+Possible duplicate invoice
+
+ABC Store
+INV-1025
+25 Sep 2026
+Rs. 2,183
+
+[View Existing]
+[Keep Both]
+```
+
+Never automatically delete.
+
+---
+
+# 60. BILL IMAGE QUALITY DETECTION
+
+Before expensive AI processing, detect obvious problems:
+
+* Too small
+* Extremely blurry
+* Completely dark
+* Unsupported format
+* Empty page
+* Mostly blank
+* Document not visible
+
+This can reduce unnecessary AI API costs.
+
+---
+
+# 61. COST CONTROL
+
+AI processing costs must be monitored.
+
+Track:
+
+```text
+provider
+model
+pages
+tokens where applicable
+processing time
+estimated cost
+success/failure
+```
+
+Do not expose provider costs to normal users unless intentionally included in an admin panel.
+
+---
+
+# 62. ADMIN PANEL — PHASE 2
+
+Admin should eventually see:
+
+* Users
+* Documents processed
+* Successful extractions
+* Failed extractions
+* AI usage
+* API costs
+* Storage usage
+* Subscription status
+* Error rates
+* Provider performance
+
+Admin must NOT automatically have unrestricted access to user financial documents.
+
+Use strict permissions and audit logging.
+
+---
+
+# 63. SUBSCRIPTION SYSTEM
+
+Architecture should support:
+
+```text
+FREE
+STARTER
+PRO
+BUSINESS
+```
+
+But pricing must remain configurable.
+
+Usage limits may include:
+
+* Documents/month
+* Pages/month
+* Storage
+* Reports
+* AI assistant usage
+* Export limits
+
+Do not hard-code plan limits throughout the application.
+
+---
+
+# 64. MVP SHOULD NOT INCLUDE
+
+Do NOT allow scope creep.
+
+The first version should NOT require:
+
+* Full accounting software
+* Full ERP
+* Inventory management
+* Payroll
+* Banking integration
+* Automated tax filing
+* Complex bookkeeping
+* Full enterprise AP automation
+* Custom AI model training
+* Native mobile apps
+* Complex WhatsApp automation
+* Full multi-company accounting
+
+These can be future products/features.
+
+---
+
+# 65. PHASE ROADMAP
+
+## Phase 1 — Foundation
+
+* Project setup
+* Authentication
+* Database
+* Storage
+* UI framework
+* API framework
+* Security foundation
+
+## Phase 2 — Document ingestion
+
+* Upload
+* File validation
+* Storage
+* Document processing jobs
+* Status tracking
+
+## Phase 3 — AI extraction
+
+* OCR/document AI integration
+* Structured extraction
+* Normalization
+* Confidence
+* Evidence
+
+## Phase 4 — Verification
+
+* Side-by-side review
+* Field editing
+* Validation
+* Approve/save
+
+## Phase 5 — Data management
+
+* Invoice list
+* Search
+* Vendors
+* Customers
+* Categories
+
+## Phase 6 — Dashboard
+
+* KPIs
+* Charts
+* Recent bills
+* Spending trends
+
+## Phase 7 — Reports
+
+* Weekly
+* Monthly
+* Yearly
+* Custom
+* CSV/XLSX/PDF
+
+## Phase 8 — Hardening
+
+* Security
+* Performance
+* Cross-browser
+* Responsive testing
+* Regression testing
+* AI accuracy testing
+
+---
+
+# 66. FUTURE PHASES
+
+## Phase 2
+
+* AI Bill Assistant
+* Vendor intelligence
+* Better categorization
+* Recurring bills
+* Email ingestion
+* Camera scanning
+* Multi-language improvements
+
+## Phase 3
+
+* WhatsApp integration
+* Accounting integrations
+* API access
+* Team accounts
+* Business workflows
+
+## Phase 4
+
+* International localization
+* Advanced financial analytics
+* Custom extraction fields
+* Enterprise workflows
+
+---
+
+# 67. QUALITY REQUIREMENTS
+
+The product is not considered complete merely because the UI works.
+
+It must pass:
+
+### Functional testing
+
+Every feature must work.
+
+### API testing
+
+Every API must be tested independently.
+
+### Database testing
+
+Verify:
+
+* Insert
+* Update
+* Delete
+* Relationships
+* Constraints
+* User isolation
+
+### AI extraction testing
+
+Use a real test dataset containing:
+
+* Different layouts
+* Different vendors
+* Different document types
+* Clear images
+* Poor images
+* Multi-page documents
+* Different currencies
+* Different languages
+* Missing fields
+* Incorrect totals
+* Tax/discount scenarios
+
+---
+
+# 68. AI ACCURACY TEST DATASET
+
+Create a controlled test dataset.
+
+Minimum target for MVP testing:
+
+100+ representative documents.
+
+Preferably include:
+
+* Retail receipts
+* Restaurant bills
+* Pharmacy bills
+* Supermarket invoices
+* Electronics invoices
+* Wholesale invoices
+* Utility bills
+* Tax invoices
+* Different layouts
+* Different image qualities
+
+Each document should have manually verified ground-truth data.
+
+Compare AI results against ground truth.
+
+---
+
+# 69. EXTRACTION METRICS
+
+Track field-level metrics.
+
+Example:
+
+```text
+Vendor Name Accuracy
+Invoice Date Accuracy
+Invoice Number Accuracy
+Customer Name Accuracy
+Phone Accuracy
+Item Name Accuracy
+Quantity Accuracy
+Unit Price Accuracy
+Subtotal Accuracy
+Tax Accuracy
+Total Accuracy
+```
+
+Do not claim "99% accuracy" unless measured against a defined test dataset.
+
+---
+
+# 70. CRITICAL FINANCIAL VALIDATION
+
+The following fields require especially strong validation:
+
+* Quantity
+* Unit price
+* Line total
+* Subtotal
+* Discount
+* Tax
+* Grand total
+
+The application should identify discrepancies.
+
+Example:
+
+```text
+AI extracted total:
+Rs. 2,183
+
+Calculated total:
+Rs. 2,180
+
+⚠ Difference detected: Rs. 3
+```
+
+Send to review.
+
+---
+
+# 71. TESTING BROWSERS
+
+Minimum:
+
+* Chrome
+* Edge
+* Firefox
+* Safari where available
+
+Test:
+
+* Desktop
+* Tablet
+* Mobile
+
+---
+
+# 72. SECURITY TESTING
+
+Test:
+
+* Authentication bypass
+* IDOR
+* Unauthorized document access
+* File upload attacks
+* Invalid file types
+* Oversized files
+* SQL injection
+* XSS
+* CSRF where applicable
+* API abuse
+* Rate limiting
+* Session handling
+* Authorization
+* Sensitive data exposure
+
+---
+
+# 73. AI FAILURE TESTING
+
+Intentionally test:
+
+* Blurry invoice
+* Rotated invoice
+* Partial invoice
+* Blank image
+* Handwritten additions
+* Missing total
+* Missing date
+* Multiple totals
+* Discount larger than subtotal
+* Tax inconsistencies
+* Duplicate invoice
+* Unreadable invoice
+* Unsupported language
+
+The system must fail safely.
+
+---
+
+# 74. NO HALLUCINATION TEST
+
+Create explicit tests where fields are missing.
+
+Example:
+
+Document:
+
+```text
+Vendor: ABC
+Date: 25/09/2026
+Total: Rs. 500
+```
+
+No customer name.
+
+Expected:
+
+```text
+customer_name = null
+```
+
+NOT:
+
+```text
+customer_name = Unknown Customer
+```
+
+and definitely not an invented name.
+
+---
+
+# 75. USER EXPERIENCE FOR LOW CONFIDENCE
+
+Example:
+
+```text
+Customer Phone
+----------------
+0300xxxxxxx
+
+⚠ Low confidence
+
+[Verify]
+```
+
+The user can inspect the source document.
+
+---
+
+# 76. LOGGING
+
+Application logs must include:
+
+* Request ID
+* User ID where safe
+* Document ID
+* Processing job ID
+* Error type
+* Processing stage
+* Provider
+* Processing duration
+
+Never log:
+
+* Passwords
+* API keys
+* Access tokens
+* Full sensitive document contents unnecessarily
+
+---
+
+# 77. ENVIRONMENT MANAGEMENT
+
+Separate:
+
+```text
+development
+staging
+production
+```
+
+Use environment variables.
+
+Example:
+
+```text
+DATABASE_URL
+STORAGE_BUCKET
+STORAGE_ACCESS_KEY
+AI_PROVIDER
+AI_API_KEY
+SECRET_KEY
+```
+
+Never commit secrets.
+
+Create:
+
+```text
+.env.example
+```
+
+without real credentials.
+
+---
+
+# 78. DEVELOPMENT RULES FOR ANTIGRAVITY
+
+Antigravity must:
+
+1. Read the entire PRD before writing code.
+2. Research technical options before selecting libraries.
+3. Create architecture documentation.
+4. Create database schema documentation.
+5. Create API documentation.
+6. Create UI/UX specification.
+7. Create test strategy.
+8. Implement incrementally.
+9. Run tests after each major module.
+10. Never silently change requirements.
+11. Record architectural decisions.
+12. Avoid duplicate code.
+13. Use reusable components.
+14. Keep secrets out of source control.
+15. Keep provider-specific AI code behind abstractions.
+16. Use migrations for database changes.
+17. Validate all server-side input.
+18. Never trust client-provided user IDs.
+19. Never expose another user's data.
+20. Never invent financial data.
+
+---
+
+# 79. ANTIGRAVITY MULTI-AGENT WORKFLOW
+
+The project should use separate logical agents.
+
+## AGENT 1 — PRODUCT/TECHNICAL RESEARCH AGENT
+
+Responsibilities:
+
+* Analyze PRD
+* Research appropriate technology
+* Research document-AI providers
+* Research OCR approaches
+* Identify technical risks
+* Identify dependencies
+* Propose architecture
+* Estimate implementation complexity
+
+Output:
+
+```text
+/research/product-research.md
+/research/technical-research.md
+/research/ai-provider-analysis.md
+```
+
+---
+
+# 80. AGENT 2 — RESEARCH QA AGENT
+
+This agent must independently review Agent 1.
+
+Check:
+
+* Incorrect assumptions
+* Unsupported technical claims
+* Missing requirements
+* Security concerns
+* Scalability concerns
+* AI limitations
+* Cost concerns
+* Vendor lock-in
+* Missing testing requirements
+
+Output:
+
+```text
+/research/research-qa.md
+```
+
+Do not simply approve Agent 1.
+
+Act as an independent reviewer.
+
+---
+
+# 81. AGENT 3 — ARCHITECTURE AGENT
+
+Create:
+
+```text
+/docs/architecture.md
+/docs/database.md
+/docs/api.md
+/docs/security.md
+/docs/ai-pipeline.md
+```
+
+Architecture must explain:
+
+```text
+Frontend
+   ↓
+API
+   ↓
+Application Services
+   ↓
+Database
+   ↓
+Storage
+
+AI Processing
+   ↓
+Queue
+   ↓
+Worker
+   ↓
+Document AI
+   ↓
+Validation
+   ↓
+Database
+```
+
+---
+
+# 82. AGENT 4 — UI/UX AGENT
+
+Before implementation, define:
+
+* Design system
+* Navigation
+* Dashboard
+* Upload flow
+* Processing state
+* Review interface
+* Invoice detail
+* Vendors
+* Customers
+* Reports
+* Settings
+* Responsive states
+* Empty states
+* Loading states
+* Error states
+
+Do not create a visually attractive dashboard while ignoring the document review workflow.
+
+The document review experience is the core product experience.
+
+---
+
+# 83. AGENT 5 — DEVELOPMENT AGENT
+
+Implement according to approved architecture.
+
+Development should occur in modules:
+
+```text
+Authentication
+↓
+Database
+↓
+Storage
+↓
+Upload
+↓
+Processing
+↓
+AI extraction
+↓
+Verification
+↓
+Invoices
+↓
+Vendors
+↓
+Reports
+↓
+Search
+```
+
+Do not build everything simultaneously.
+
+---
+
+# 84. AGENT 6 — QA/TESTING AGENT
+
+Independently test the implementation.
+
+Test:
+
+* UI
+* APIs
+* Database
+* Authentication
+* Authorization
+* Upload
+* AI extraction
+* Validation
+* Reports
+* Search
+* Responsive design
+* Browser compatibility
+* Security
+
+Create:
+
+```text
+/qa/test-plan.md
+/qa/test-cases.md
+/qa/test-results.md
+/qa/bugs.md
+```
+
+---
+
+# 85. BUG FIX LOOP
+
+The workflow must be:
+
+```text
+Development
+     ↓
+QA
+     ↓
+Bug found
+     ↓
+Developer fixes
+     ↓
+QA retests
+     ↓
+Regression testing
+     ↓
+Next feature
+```
+
+A bug is not closed simply because the developer says it is fixed.
+
+QA must verify it.
+
+---
+
+# 86. FINAL PRODUCT AUDIT
+
+Before declaring the product complete:
+
+### Product
+
+* Does the workflow solve the original problem?
+
+### Functional
+
+* Does every requirement work?
+
+### AI
+
+* Does extraction work across different layouts?
+
+### Accuracy
+
+* Are important financial fields validated?
+
+### Security
+
+* Can users access only their own data?
+
+### UI/UX
+
+* Is it easy to understand?
+
+### Responsive
+
+* Does it work on mobile?
+
+### Performance
+
+* Does it remain usable with large datasets?
+
+### Database
+
+* Are relationships and indexes correct?
+
+### API
+
+* Are APIs documented and secured?
+
+### Error handling
+
+* Does the product fail gracefully?
+
+### Testing
+
+* Are critical flows covered?
+
+---
+
+# 87. DEFINITION OF DONE
+
+A feature is DONE only when:
+
+* Requirements implemented
+* UI implemented
+* API implemented
+* Database implemented
+* Validation implemented
+* Error handling implemented
+* Unit/integration tests added where appropriate
+* QA tested
+* Responsive tested
+* Security reviewed
+* Documentation updated
+* Regression tests passed
+
+---
+
+# 88. MVP ACCEPTANCE CRITERIA
+
+The MVP is successful when a user can:
+
+### A.
+
+Create an account.
+
+### B.
+
+Upload a printed bill image.
+
+### C.
+
+System processes the document.
+
+### D.
+
+System identifies the document type.
+
+### E.
+
+System extracts available information.
+
+### F.
+
+System extracts line items.
+
+### G.
+
+System calculates/validates totals.
+
+### H.
+
+System shows confidence/verification requirements.
+
+### I.
+
+User sees original document alongside extracted information.
+
+### J.
+
+User can correct information.
+
+### K.
+
+User approves the document.
+
+### L.
+
+Verified data is saved.
+
+### M.
+
+User can search the document.
+
+### N.
+
+User can filter documents by date.
+
+### O.
+
+User can view spending statistics.
+
+### P.
+
+User can generate weekly/monthly/custom reports.
+
+### Q.
+
+User can export data.
+
+### R.
+
+User cannot access another user's data.
+
+### S.
+
+System never invents missing invoice information.
+
+---
+
+# 89. SAMPLE END-TO-END SCENARIO
+
+Input:
+
+A user uploads:
+
+```text
+ABC Super Store
+
+Date: 25-09-2026
+
+Milk       2 x 250     500
+Bread      1 x 180     180
+Eggs       1 x 320     320
+
+Subtotal:             1000
+GST:                   180
+Total:                1180
+```
+
+System extracts:
+
+```text
+Vendor:
+ABC Super Store
+
+Date:
+25-09-2026
+
+Items:
+Milk
+Qty: 2
+Unit: 250
+Total: 500
+
+Bread
+Qty: 1
+Unit: 180
+Total: 180
+
+Eggs
+Qty: 1
+Unit: 320
+Total: 320
+
+Subtotal:
+1000
+
+Tax:
+180
+
+Total:
+1180
+```
+
+Validation:
+
+```text
+500 + 180 + 320 = 1000
+1000 + 180 = 1180
+```
+
+Result:
+
+```text
+VALID
+```
+
+User clicks:
+
+**Approve & Save**
+
+Database stores the structured record.
+
+Dashboard updates automatically.
+
+---
+
+# 90. IMPORTANT PRODUCT RULES
+
+These are NON-NEGOTIABLE.
+
+## Rule 1
+
+Never invent information.
+
+## Rule 2
+
+Never trust AI extraction blindly.
+
+## Rule 3
+
+Validate financial calculations.
+
+## Rule 4
+
+Preserve the original document.
+
+## Rule 5
+
+Keep source evidence whenever available.
+
+## Rule 6
+
+Allow human correction.
+
+## Rule 7
+
+Do not depend on fixed invoice templates.
+
+## Rule 8
+
+Keep AI provider code replaceable.
+
+## Rule 9
+
+Keep user data isolated.
+
+## Rule 10
+
+Never expose secrets in frontend code.
+
+## Rule 11
+
+Do not allow AI to directly execute unrestricted production SQL.
+
+## Rule 12
+
+Every important financial change should be auditable.
+
+## Rule 13
+
+Do not sacrifice accuracy for visual features.
+
+## Rule 14
+
+Do not add features simply because they are technically interesting.
+
+## Rule 15
+
+Keep MVP focused.
+
+---
+
+# 91. PRODUCT SUCCESS METRICS
+
+Track:
+
+### Activation
+
+Percentage of users who upload their first bill.
+
+### Processing success
+
+Percentage of documents successfully processed.
+
+### Verification rate
+
+Percentage requiring manual correction.
+
+### Extraction accuracy
+
+Measured against ground-truth datasets.
+
+### Time saved
+
+Average time from upload to verified invoice.
+
+### Retention
+
+Users returning to upload/search bills.
+
+### Bills per active user
+
+Average documents processed per user.
+
+### Report usage
+
+Weekly/monthly report usage.
+
+### Export usage
+
+CSV/Excel/PDF exports.
+
+### Paid conversion
+
+For subscription phase.
+
+---
+
+# 92. FUTURE PRODUCT VISION
+
+The long-term product should evolve from:
+
+**Bill Scanner**
+
+into:
+
+**Bill Intelligence Platform**
+
+Eventually:
+
+```text
+                    BILL INTELLIGENCE
+                           │
+          ┌────────────────┼────────────────┐
+          │                │                │
+       Capture          Understand       Store
+          │                │                │
+       Camera            AI/OCR         Database
+       Upload            Extraction     History
+       Email             Validation
+       WhatsApp
+          │
+          └────────────────┬────────────────┘
+                           │
+                    Intelligence
+                           │
+          ┌────────────────┼────────────────┐
+          │                │                │
+       Search           Reports          AI Chat
+          │                │                │
+       Vendors          Spending        Questions
+       Customers        Trends          Insights
+       Products         Categories      Analysis
+```
+
+---
+
+# 93. FINAL PRODUCT POSITIONING
+
+The product should NOT be presented simply as:
+
+> OCR software.
+
+Instead:
+
+> **AI-powered bill intelligence that turns paper invoices and receipts into organized, searchable and actionable financial data.**
+
+Core message:
+
+> **Upload any bill. Let AI understand it. Verify it. Save it. Search it. Understand your spending.**
+
+---
+
+# 94. FINAL INSTRUCTION TO ANTIGRAVITY
+
+Treat this PRD as the source of truth for the project.
+
+Before coding:
+
+1. Read the entire PRD.
+2. Analyze all requirements.
+3. Identify ambiguities.
+4. Research current technical options.
+5. Produce the research documents.
+6. Have a separate QA/research agent review the findings.
+7. Produce the architecture.
+8. Produce database and API specifications.
+9. Produce UI/UX specifications.
+10. Create the implementation plan.
+11. Only then begin development.
+
+During development:
+
+* Work incrementally.
+* Keep the architecture modular.
+* Write reusable code.
+* Test every major feature.
+* Maintain documentation.
+* Maintain migrations.
+* Maintain environment configuration.
+* Do not expose secrets.
+* Do not invent missing requirements.
+* Do not silently change architecture.
+* Do not remove requirements to make implementation easier.
+
+After development:
+
+* Run functional testing.
+* Run API testing.
+* Run database testing.
+* Run AI extraction testing.
+* Run security testing.
+* Run responsive testing.
+* Run cross-browser testing.
+* Run regression testing.
+* Fix discovered issues.
+* Retest fixes.
+* Perform a final product audit.
+
+Create a final project report containing:
+
+```text
+1. Implemented features
+2. Architecture
+3. Technology stack
+4. Database schema
+5. API documentation
+6. AI extraction architecture
+7. Test coverage
+8. Test results
+9. Known limitations
+10. Remaining bugs
+11. Security findings
+12. Performance findings
+13. Deployment instructions
+14. Environment variables
+15. Future recommendations
+```
+
+The final system must be production-oriented, secure, maintainable, responsive, testable, and extensible.
+
+Most importantly:
+
+**Build a trustworthy bill-intelligence product, not merely an OCR demo.**
