@@ -5,6 +5,7 @@ import Link from "next/link";
 import { 
   Download, 
   FileSpreadsheet, 
+  FileText,
   Tag, 
   Building2, 
   TrendingUp, 
@@ -55,7 +56,7 @@ export default function ReportsPage() {
     }
   }, [reportType, startDate, endDate, selectedVendorId, fetchReport]);
 
-  const handleExport = (format: "csv" | "xlsx") => {
+  const handleExport = (format: "csv" | "xlsx" | "pdf") => {
     const url = api.getExportUrl(format, {
       start_date: startDate || data?.start_date,
       end_date: endDate || data?.end_date,
@@ -106,6 +107,13 @@ export default function ReportsPage() {
               >
                 <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
                 <span>{t.reports.exportExcel}</span>
+              </button>
+              <button
+                onClick={() => handleExport("pdf")}
+                className="inline-flex items-center gap-1.5 px-3 py-2 bg-indigo-900 hover:bg-indigo-950 text-white text-xs font-semibold rounded-lg border border-indigo-800 shadow-xs transition-all"
+              >
+                <FileText className="w-3.5 h-3.5 text-indigo-200" />
+                <span>{t.reports.exportPdf}</span>
               </button>
             </div>
           </div>

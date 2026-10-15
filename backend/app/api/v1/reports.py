@@ -51,22 +51,24 @@ def get_report_summary(
 
 @router.get("/export")
 def export_invoices(
-    format: str = Query("csv", pattern="^(csv|xlsx)$"),
+    format: str = Query("csv", pattern="^(csv|xlsx|pdf)$"),
     search: Optional[str] = None,
     start_date: Optional[date] = None,
     end_date: Optional[date] = None,
     vendor_id: Optional[str] = None,
+    customer_id: Optional[str] = None,
     category_id: Optional[str] = None,
     user_id: str = Depends(get_current_user_id),
     db: Session = Depends(get_db)
 ):
-    items, _, _ = InvoiceService.get_invoices(
+    items, *_ = InvoiceService.get_invoices(
         db=db,
         user_id=user_id,
         search=search,
         start_date=start_date,
         end_date=end_date,
         vendor_id=vendor_id,
+        customer_id=customer_id,
         category_id=category_id,
         page=1,
         page_size=10000 # full export
@@ -79,10 +81,22 @@ def export_invoices(
             media_type="text/csv",
             headers={"Content-Disposition": f"attachment; filename=bills_export_{date.today().isoformat()}.csv"}
         )
-    else:
+    elif format == "xlsx":
         data = ExportService.export_excel(items)
         return Response(
             content=data.getvalue(),
             media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             headers={"Content-Disposition": f"attachment; filename=bills_export_{date.today().isoformat()}.xlsx"}
+        )
+    else:  # pdf
+        filter_meta = {
+            "start_date": start_date.isoformat() if start_date else None,
+            "end_date": end_date.isoformat() if end_date else None,
+            "search": search,
+        }
+        data = ExportService.export_pdf(items, filter_meta=filter_meta)
+        return Response(
+            content=data.getvalue(),
+            media_type="application/pdf",
+            headers={"Content-Disposition": f"attachment; filename=bills_report_{date.today().isoformat()}.pdf"}
         )

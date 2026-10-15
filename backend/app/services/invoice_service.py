@@ -6,10 +6,11 @@ from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, or_, desc, asc
 
 from app.models.invoice import Invoice, InvoiceItem
-from app.models.vendor import Vendor
+from app.models.vendor import Vendor, VendorAlias
 from app.models.customer import Customer
 from app.models.document import Document
 from app.models.audit_log import AuditLog
+from app.services.validation_service import ValidationService
 from app.schemas.invoice import (
     InvoiceVerificationRequest, 
     InvoiceUpdate, 
@@ -19,17 +20,37 @@ from app.schemas.invoice import (
 class InvoiceService:
     @staticmethod
     def get_or_create_vendor(db: Session, user_id: str, name: str, **kwargs) -> Vendor:
-        norm_name = name.strip().lower()
+        clean_name = name.strip()
+        norm_name = clean_name.lower()
+
+        # 1. Search by normalized name
         vendor = db.query(Vendor).filter(
             Vendor.user_id == user_id,
             Vendor.normalized_name == norm_name
         ).first()
 
+        # 2. Match on vendor aliases
+        if not vendor:
+            alias = db.query(VendorAlias).join(Vendor).filter(
+                Vendor.user_id == user_id,
+                func.lower(VendorAlias.alias_name) == norm_name
+            ).first()
+            if alias:
+                vendor = alias.vendor
+
+        # 3. Match by phone if available
+        phone = kwargs.get("phone")
+        if not vendor and phone and len(str(phone).strip()) >= 7:
+            vendor = db.query(Vendor).filter(
+                Vendor.user_id == user_id,
+                Vendor.phone == str(phone).strip()
+            ).first()
+
         if not vendor:
             vendor = Vendor(
                 id=str(uuid.uuid4()),
                 user_id=user_id,
-                name=name.strip(),
+                name=clean_name,
                 normalized_name=norm_name,
                 phone=kwargs.get("phone"),
                 email=kwargs.get("email"),
@@ -40,27 +61,61 @@ class InvoiceService:
             )
             db.add(vendor)
             db.flush()
+        else:
+            # Enrich missing metadata from bill
+            if kwargs.get("phone") and not vendor.phone:
+                vendor.phone = str(kwargs.get("phone")).strip()
+            if kwargs.get("ntn") and not vendor.ntn:
+                vendor.ntn = str(kwargs.get("ntn")).strip()
+            if kwargs.get("strn") and not vendor.strn:
+                vendor.strn = str(kwargs.get("strn")).strip()
+            if kwargs.get("address") and not vendor.address:
+                vendor.address = str(kwargs.get("address")).strip()
+            if kwargs.get("email") and not vendor.email:
+                vendor.email = str(kwargs.get("email")).strip()
+            db.flush()
         return vendor
 
     @staticmethod
     def get_or_create_customer(db: Session, user_id: str, name: Optional[str], **kwargs) -> Optional[Customer]:
         if not name or not name.strip():
             return None
-        cust = db.query(Customer).filter(
-            Customer.user_id == user_id,
-            Customer.name == name.strip()
-        ).first()
+        clean_name = name.strip()
+        norm_name = clean_name.lower()
+        phone = kwargs.get("phone")
+        clean_phone = str(phone).strip() if phone else None
+
+        # Case-insensitive search by name or exact phone match
+        query = db.query(Customer).filter(Customer.user_id == user_id)
+        if clean_phone and len(clean_phone) >= 7:
+            cust = query.filter(
+                or_(
+                    func.lower(Customer.name) == norm_name,
+                    Customer.phone == clean_phone
+                )
+            ).first()
+        else:
+            cust = query.filter(func.lower(Customer.name) == norm_name).first()
 
         if not cust:
             cust = Customer(
                 id=str(uuid.uuid4()),
                 user_id=user_id,
-                name=name.strip(),
-                phone=kwargs.get("phone"),
+                name=clean_name,
+                phone=clean_phone,
                 email=kwargs.get("email"),
                 address=kwargs.get("address")
             )
             db.add(cust)
+            db.flush()
+        else:
+            # Enrich existing customer profile with missing attributes
+            if clean_phone and not cust.phone:
+                cust.phone = clean_phone
+            if kwargs.get("email") and not cust.email:
+                cust.email = str(kwargs.get("email")).strip()
+            if kwargs.get("address") and not cust.address:
+                cust.address = str(kwargs.get("address")).strip()
             db.flush()
         return cust
 
@@ -100,6 +155,19 @@ class InvoiceService:
                 Invoice.user_id == user_id
             ).first()
 
+        # Evaluate financial & completeness discrepancies
+        has_disc, disc_notes = ValidationService.evaluate_invoice_discrepancies(
+            subtotal=req.subtotal,
+            discount=req.discount,
+            tax=req.tax,
+            service_charge=req.service_charge,
+            shipping=req.shipping,
+            rounding=req.rounding,
+            total=req.total,
+            items=req.items,
+            vendor_name=req.vendor_name
+        )
+
         if existing_invoice:
             invoice = existing_invoice
             inv_id = invoice.id
@@ -123,6 +191,9 @@ class InvoiceService:
             invoice.balance_due = req.balance_due
             invoice.payment_method = req.payment_method
             invoice.verification_status = "VERIFIED"
+            invoice.has_discrepancy = has_disc
+            invoice.discrepancy_count = len(disc_notes)
+            invoice.discrepancy_notes = disc_notes
             invoice.custom_fields = req.custom_fields
             invoice.notes = req.notes
             db.query(InvoiceItem).filter(InvoiceItem.invoice_id == inv_id).delete()
@@ -153,6 +224,9 @@ class InvoiceService:
                 payment_method=req.payment_method,
                 confidence_score=1.0,
                 verification_status="VERIFIED",
+                has_discrepancy=has_disc,
+                discrepancy_count=len(disc_notes),
+                discrepancy_notes=disc_notes,
                 custom_fields=req.custom_fields,
                 notes=req.notes
             )
@@ -185,6 +259,8 @@ class InvoiceService:
             ).first()
             if doc:
                 doc.status = "VERIFIED"
+                doc.has_discrepancy = has_disc
+                doc.discrepancy_notes = disc_notes
 
         # 6. Record Audit Log
         db.add(AuditLog(
@@ -207,21 +283,33 @@ class InvoiceService:
         start_date: Optional[date] = None,
         end_date: Optional[date] = None,
         vendor_id: Optional[str] = None,
+        customer_id: Optional[str] = None,
         category_id: Optional[str] = None,
         status: Optional[str] = None,
+        has_discrepancy: Optional[bool] = None,
         min_total: Optional[Decimal] = None,
         max_total: Optional[Decimal] = None,
         sort_by: str = "invoice_date",
         sort_order: str = "desc",
         page: int = 1,
         page_size: int = 20
-    ) -> Tuple[List[Invoice], int, Decimal]:
+    ) -> Tuple[List[Invoice], int, Decimal, int, int]:
         query = db.query(Invoice).options(
             joinedload(Invoice.vendor),
             joinedload(Invoice.customer),
             joinedload(Invoice.category),
             joinedload(Invoice.items)
         ).filter(Invoice.user_id == user_id)
+
+        # Discrepancy counts across all user's invoices
+        incorrect_count = db.query(func.count(Invoice.id)).filter(
+            Invoice.user_id == user_id,
+            Invoice.has_discrepancy == True
+        ).scalar() or 0
+        clean_count = db.query(func.count(Invoice.id)).filter(
+            Invoice.user_id == user_id,
+            Invoice.has_discrepancy == False
+        ).scalar() or 0
 
         # Filters
         if start_date:
@@ -230,10 +318,14 @@ class InvoiceService:
             query = query.filter(Invoice.invoice_date <= end_date)
         if vendor_id:
             query = query.filter(Invoice.vendor_id == vendor_id)
+        if customer_id:
+            query = query.filter(Invoice.customer_id == customer_id)
         if category_id:
             query = query.filter(Invoice.category_id == category_id)
         if status:
             query = query.filter(Invoice.verification_status == status)
+        if has_discrepancy is not None:
+            query = query.filter(Invoice.has_discrepancy == has_discrepancy)
         if min_total is not None:
             query = query.filter(Invoice.total >= min_total)
         if max_total is not None:
@@ -267,4 +359,4 @@ class InvoiceService:
         offset = (page - 1) * page_size
         items = query.offset(offset).limit(page_size).all()
 
-        return items, total_count, total_spend
+        return items, total_count, total_spend, incorrect_count, clean_count

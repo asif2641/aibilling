@@ -46,6 +46,9 @@ class InvoiceBase(BaseModel):
     payment_method: Optional[str] = None
     category_id: Optional[str] = None
     notes: Optional[str] = None
+    has_discrepancy: bool = False
+    discrepancy_count: int = 0
+    discrepancy_notes: List[str] = []
     custom_fields: Dict[str, Any] = {}
 
 class InvoiceVerificationRequest(InvoiceBase):
@@ -63,6 +66,12 @@ class InvoiceVerificationRequest(InvoiceBase):
 
 class InvoiceUpdate(BaseModel):
     vendor_name: Optional[str] = None
+    vendor_id: Optional[str] = None
+    customer_name: Optional[str] = None
+    customer_id: Optional[str] = None
+    customer_phone: Optional[str] = None
+    customer_email: Optional[str] = None
+    customer_address: Optional[str] = None
     invoice_number: Optional[str] = None
     invoice_date: Optional[date] = None
     due_date: Optional[date] = None
@@ -86,6 +95,10 @@ class InvoiceUpdate(BaseModel):
 class VendorBrief(BaseModel):
     id: str
     name: str
+    phone: Optional[str] = None
+    address: Optional[str] = None
+    ntn: Optional[str] = None
+    strn: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -93,6 +106,8 @@ class CustomerBrief(BaseModel):
     id: str
     name: str
     phone: Optional[str] = None
+    email: Optional[str] = None
+    address: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -127,3 +142,5 @@ class InvoiceListResponse(BaseModel):
     page: int
     page_size: int
     total_spend: Decimal
+    incorrect_count: int = 0
+    clean_count: int = 0

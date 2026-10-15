@@ -2,8 +2,23 @@ export interface User {
   id: string;
   email: string;
   full_name: string | null;
+  role?: string;
+  is_superuser?: boolean;
   currency: string;
   is_active: boolean;
+  created_at: string;
+  last_login_at: string | null;
+}
+
+export interface StaffMember {
+  id: string;
+  email: string;
+  full_name: string | null;
+  role: string;
+  is_superuser: boolean;
+  is_active: boolean;
+  currency: string;
+  password_display?: string | null;
   created_at: string;
   last_login_at: string | null;
 }
@@ -87,6 +102,14 @@ export interface ExtractionResult {
   validation?: ValidationResult | null;
 }
 
+export interface DocumentPageItem {
+  id: string;
+  page_number: number;
+  width?: number;
+  height?: number;
+  file_url: string;
+}
+
 export interface DocumentItem {
   id: string;
   user_id: string;
@@ -98,6 +121,7 @@ export interface DocumentItem {
   document_type: string;
   processing_error?: string | null;
   file_url: string;
+  pages?: DocumentPageItem[];
   extraction?: ExtractionResult | null;
   created_at: string;
   updated_at: string;
@@ -124,9 +148,8 @@ export interface Invoice {
   document_id?: string | null;
   vendor_id?: string | null;
   customer_id?: string | null;
-  category_id?: string | null;
-  vendor?: { id: string; name: string } | null;
-  customer?: { id: string; name: string; phone?: string | null } | null;
+  vendor?: { id: string; name: string; phone?: string | null; address?: string | null; ntn?: string | null; strn?: string | null } | null;
+  customer?: { id: string; name: string; phone?: string | null; email?: string | null; address?: string | null } | null;
   category?: { id: string; name: string; color: string; icon: string } | null;
   invoice_number?: string | null;
   receipt_number?: string | null;
@@ -146,11 +169,24 @@ export interface Invoice {
   payment_method?: string | null;
   confidence_score: number;
   verification_status: "UNVERIFIED" | "VERIFIED" | "REJECTED";
+  has_discrepancy?: boolean;
+  discrepancy_count?: number;
+  discrepancy_notes?: string[];
   custom_fields?: Record<string, any>;
   notes?: string | null;
   items: InvoiceItem[];
   created_at: string;
   updated_at: string;
+}
+
+export interface InvoiceListResponse {
+  items: Invoice[];
+  total: number;
+  page: number;
+  page_size: number;
+  total_spend: string | number;
+  incorrect_count?: number;
+  clean_count?: number;
 }
 
 export interface Vendor {
@@ -166,6 +202,7 @@ export interface Vendor {
   strn?: string | null;
   total_invoices: number;
   total_spend: string | number;
+  incorrect_invoices_count?: number;
   last_invoice_date?: string | null;
   created_at: string;
 }
@@ -214,6 +251,7 @@ export interface DashboardSummary {
   weekly_trend: WeeklyTrendItem[];
   recent_invoices: Invoice[];
   status_counts: Record<string, number>;
+  incorrect_bills_count?: number;
 }
 
 export interface TimelinePoint {
@@ -241,6 +279,44 @@ export interface ReportSummary {
   invoices: Invoice[];
 }
 
+export interface VendorInvoiceItem {
+  id: string;
+  invoice_number?: string | null;
+  invoice_date: string;
+  total: string | number;
+  currency: string;
+  customer_name?: string | null;
+  customer_id?: string | null;
+  status: string;
+  category_name?: string | null;
+  items_count?: number;
+  notes?: string | null;
+  document_id?: string | null;
+  has_discrepancy?: boolean;
+  discrepancy_notes?: string[];
+}
+
+export interface VendorDetail extends Vendor {
+  invoices: VendorInvoiceItem[];
+}
+
+export interface CustomerInvoiceItem {
+  id: string;
+  invoice_number?: string | null;
+  invoice_date: string;
+  total: string | number;
+  currency: string;
+  vendor_name?: string | null;
+  vendor_id?: string | null;
+  status: string;
+  category_name?: string | null;
+  items_count?: number;
+  notes?: string | null;
+  document_id?: string | null;
+  has_discrepancy?: boolean;
+  discrepancy_notes?: string[];
+}
+
 export interface Customer {
   id: string;
   name: string;
@@ -249,19 +325,13 @@ export interface Customer {
   address?: string | null;
   total_invoices: number;
   total_spend: string | number;
+  incorrect_invoices_count?: number;
   last_purchase_date?: string | null;
   created_at: string;
   updated_at: string;
 }
 
 export interface CustomerDetail extends Customer {
-  invoices: {
-    id: string;
-    invoice_number?: string | null;
-    invoice_date: string;
-    total: string | number;
-    currency: string;
-    vendor_name?: string | null;
-    status: string;
-  }[];
+  invoices: CustomerInvoiceItem[];
 }
+

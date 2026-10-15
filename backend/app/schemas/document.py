@@ -22,6 +22,15 @@ class DocumentStatusResponse(BaseModel):
     processing_error: Optional[str] = None
     updated_at: datetime
 
+class DocumentPageResponse(BaseModel):
+    id: str
+    page_number: int
+    width: Optional[int] = None
+    height: Optional[int] = None
+    file_url: str
+
+    model_config = ConfigDict(from_attributes=True)
+
 class DocumentDetailResponse(BaseModel):
     id: str
     user_id: str
@@ -33,6 +42,7 @@ class DocumentDetailResponse(BaseModel):
     document_type: str
     processing_error: Optional[str] = None
     file_url: str
+    pages: Optional[List[DocumentPageResponse]] = None
     extraction: Optional[ExtractionResultSchema] = None
     created_at: datetime
     updated_at: datetime

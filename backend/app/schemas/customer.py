@@ -24,6 +24,7 @@ class CustomerResponse(CustomerBase):
     updated_at: datetime
     total_invoices: int = 0
     total_spend: Decimal = Decimal("0.00")
+    incorrect_invoices_count: int = 0
     last_purchase_date: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
@@ -35,7 +36,14 @@ class CustomerInvoiceItem(BaseModel):
     total: Decimal
     currency: str
     vendor_name: Optional[str] = None
+    vendor_id: Optional[str] = None
     status: str
+    category_name: Optional[str] = None
+    items_count: int = 0
+    notes: Optional[str] = None
+    document_id: Optional[str] = None
+    has_discrepancy: bool = False
+    discrepancy_notes: List[str] = []
 
     model_config = ConfigDict(from_attributes=True)
 

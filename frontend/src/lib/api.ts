@@ -118,6 +118,17 @@ class ApiClient {
     });
   }
 
+  async uploadMultiImageDocument(files: File[]): Promise<any> {
+    const formData = new FormData();
+    files.forEach((file) => {
+      formData.append("files", file);
+    });
+    return this.request("/documents/upload-multi", {
+      method: "POST",
+      body: formData,
+    });
+  }
+
   async getDocumentStatus(id: string): Promise<any> {
     return this.request(`/documents/${id}/status`);
   }
@@ -253,7 +264,7 @@ class ApiClient {
     return this.request(url);
   }
 
-  getExportUrl(format: "csv" | "xlsx", params: Record<string, any> = {}): string {
+  getExportUrl(format: "csv" | "xlsx" | "pdf", params: Record<string, any> = {}): string {
     const cleanParams: Record<string, string> = { format };
     for (const [k, v] of Object.entries(params)) {
       if (v !== undefined && v !== null && v !== "") {
@@ -263,6 +274,50 @@ class ApiClient {
     const q = new URLSearchParams(cleanParams).toString();
     const token = this.getToken();
     return `${API_BASE}/reports/export?${q}&token=${token || ""}`;
+  }
+
+  // Staff & User Management (Super Admin)
+  async getStaffUsers(): Promise<any[]> {
+    return this.request("/users");
+  }
+
+  async createStaffUser(payload: any): Promise<any> {
+    return this.request("/users", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async updateStaffUser(id: string, payload: any): Promise<any> {
+    return this.request(`/users/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async deleteStaffUser(id: string): Promise<any> {
+    return this.request(`/users/${id}`, { method: "DELETE" });
+  }
+
+  // AI Settings
+  async getAISettings(): Promise<{
+    ai_provider: string;
+    gemini_api_key_configured: boolean;
+    gemini_api_key_masked: string;
+    gemini_model: string;
+  }> {
+    return this.request("/documents/ai-settings");
+  }
+
+  async updateAISettings(payload: {
+    ai_provider?: string;
+    gemini_api_key?: string;
+    gemini_model?: string;
+  }): Promise<any> {
+    return this.request("/documents/ai-settings", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
   }
 }
 

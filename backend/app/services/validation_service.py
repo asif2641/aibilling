@@ -39,6 +39,15 @@ class ValidationService:
             discount = cls.to_decimal(item.discount)
             actual_total = cls.to_decimal(item.line_total)
 
+            # Check for missing item price / zero price
+            if (unit_price <= Decimal("0.00") or actual_total <= Decimal("0.00")) and item.name:
+                discrepancies.append(DiscrepancySchema(
+                    field="unit_price",
+                    item_index=idx,
+                    message=f"Line item '{item.name}': Missing price or price is 0.00",
+                    severity="error"
+                ))
+
             expected_line_total = (qty * unit_price) - discount
             if abs(expected_line_total - actual_total) > TOLERANCE and (qty > 0 and unit_price > 0):
                 discrepancies.append(DiscrepancySchema(
@@ -90,6 +99,66 @@ class ValidationService:
             calculated_subtotal=float(calculated_subtotal),
             calculated_total=float(expected_total if stated_total == Decimal("0.00") else stated_total)
         )
+
+    @classmethod
+    def evaluate_invoice_discrepancies(
+        cls,
+        subtotal: Any,
+        discount: Any,
+        tax: Any,
+        service_charge: Any,
+        shipping: Any,
+        rounding: Any,
+        total: Any,
+        items: List[Any],
+        vendor_name: Optional[str] = None
+    ) -> Tuple[bool, List[str]]:
+        """
+        Evaluates saved/approved invoice against mathematical and completeness rules.
+        Returns: (has_discrepancy, list_of_discrepancy_reasons)
+        """
+        notes: List[str] = []
+        d_subtotal = cls.to_decimal(subtotal)
+        d_discount = cls.to_decimal(discount)
+        d_tax = cls.to_decimal(tax)
+        d_service = cls.to_decimal(service_charge)
+        d_shipping = cls.to_decimal(shipping)
+        d_rounding = cls.to_decimal(rounding)
+        d_total = cls.to_decimal(total)
+
+        # 1. Line items checks
+        calculated_items_sum = Decimal("0.00")
+        for idx, item in enumerate(items):
+            name = getattr(item, "name", None) or (item.get("name") if isinstance(item, dict) else f"Item #{idx+1}")
+            qty = cls.to_decimal(getattr(item, "quantity", None) or (item.get("quantity") if isinstance(item, dict) else 1))
+            price = cls.to_decimal(getattr(item, "unit_price", None) or (item.get("unit_price") if isinstance(item, dict) else 0))
+            line_tot = cls.to_decimal(getattr(item, "line_total", None) or (item.get("line_total") if isinstance(item, dict) else 0))
+
+            if (price <= Decimal("0.00") or line_tot <= Decimal("0.00")) and name:
+                notes.append(f"Item '{name}' is missing price or price is 0.00")
+            elif qty > 0 and price > 0:
+                expected_line = qty * price
+                it_disc = cls.to_decimal(getattr(item, "discount", None) or (item.get("discount") if isinstance(item, dict) else 0))
+                if abs((expected_line - it_disc) - line_tot) > TOLERANCE:
+                    notes.append(f"Item '{name}' line total ({line_tot}) does not match quantity × price ({expected_line - it_disc})")
+
+            calculated_items_sum += line_tot
+
+        # 2. Subtotal check against line items (if items itemized)
+        if len(items) > 0 and abs(calculated_items_sum - d_subtotal) > TOLERANCE:
+            notes.append(f"Sum of line items ({calculated_items_sum}) does not match subtotal ({d_subtotal})")
+
+        # 3. Grand total equation check
+        expected_total = d_subtotal - d_discount + d_tax + d_service + d_shipping + d_rounding
+        if abs(expected_total - d_total) > TOLERANCE and d_total > Decimal("0.00"):
+            notes.append(f"Calculated grand total ({expected_total}) differs from stated total ({d_total})")
+
+        # 4. Zero or negative total
+        if d_total <= Decimal("0.00"):
+            notes.append("Grand total is zero or negative")
+
+        has_discrepancy = len(notes) > 0
+        return has_discrepancy, notes
 
     @staticmethod
     def normalize_date(date_str: Optional[str]) -> Optional[date]:

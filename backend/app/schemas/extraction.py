@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from typing import Optional, List, Dict, Any
 
 class BoundingBoxSchema(BaseModel):
@@ -14,6 +14,15 @@ class ExtractedFieldSchema(BaseModel):
     source_text: Optional[str] = None
     page_number: int = 1
     bounding_box: Optional[BoundingBoxSchema] = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def wrap_primitive(cls, data: Any):
+        if data is None:
+            return {"value": None, "confidence": 1.0}
+        if not isinstance(data, dict):
+            return {"value": data, "confidence": 0.95, "source_text": str(data)}
+        return data
 
 class ExtractedItemSchema(BaseModel):
     name: str

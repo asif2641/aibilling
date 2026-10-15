@@ -1,16 +1,19 @@
+from datetime import date
+
 def test_dashboard_summary_and_reports(client, auth_headers):
+    today_str = date.today().strftime("%Y-%m-%d")
     # Create test invoices across categories
     client.post("/api/v1/invoices/approve", headers=auth_headers, json={
         "vendor_name": "Grocery Store",
         "invoice_number": "INV-G1",
-        "invoice_date": "2026-09-20",
+        "invoice_date": today_str,
         "total": 3500.00,
         "items": []
     })
     client.post("/api/v1/invoices/approve", headers=auth_headers, json={
         "vendor_name": "Electricity Board",
         "invoice_number": "UTIL-10",
-        "invoice_date": "2026-09-22",
+        "invoice_date": today_str,
         "total": 8500.00,
         "items": []
     })
@@ -44,3 +47,10 @@ def test_export_csv_and_excel(client, auth_headers):
     assert xlsx_res.status_code == 200
     assert "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" in xlsx_res.headers["content-type"]
     assert len(xlsx_res.content) > 100
+
+    # PDF report export
+    pdf_res = client.get("/api/v1/reports/export?format=pdf", headers=auth_headers)
+    assert pdf_res.status_code == 200
+    assert "application/pdf" in pdf_res.headers["content-type"]
+    assert pdf_res.content.startswith(b"%PDF-")
+    assert len(pdf_res.content) > 500

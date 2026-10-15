@@ -189,11 +189,61 @@ export function ReviewForm({
     }
   };
 
-  // Real-time Arithmetic Recalculations
+  // Real-time Arithmetic Recalculations & Discrepancies
   const calculatedItemsSum = items.reduce((sum, item) => sum + Number(item.line_total || 0), 0);
   const calculatedGrandTotal = subtotal - discount + tax + serviceCharge;
   const isSubtotalMatching = items.length === 0 || Math.abs(calculatedItemsSum - subtotal) <= 0.05;
   const isGrandTotalMatching = Math.abs(calculatedGrandTotal - total) <= 0.05;
+
+  // Identify items with missing price
+  const missingPriceItems = items.filter(
+    (item) => Number(item.unit_price || 0) <= 0 || Number(item.line_total || 0) <= 0
+  );
+
+  // Active errors list
+  const activeDiscrepancies: string[] = [];
+  if (missingPriceItems.length > 0) {
+    missingPriceItems.forEach((it) => {
+      activeDiscrepancies.push(`Item "${it.name || "Unnamed"}" is missing unit price (0.00)`);
+    });
+  }
+  if (!isSubtotalMatching) {
+    activeDiscrepancies.push(
+      `Line items sum (${calculatedItemsSum.toFixed(2)}) differs from subtotal (${subtotal.toFixed(2)})`
+    );
+  }
+  if (!isGrandTotalMatching) {
+    activeDiscrepancies.push(
+      `Calculated total (${calculatedGrandTotal.toFixed(2)}) differs from grand total (${total.toFixed(2)})`
+    );
+  }
+  if (total <= 0) {
+    activeDiscrepancies.push("Grand total is zero or negative");
+  }
+
+  // Check for image quality advisory warnings from backend
+  const qualityWarnings: string[] = [];
+  if (initialData?.validation?.discrepancies) {
+    initialData.validation.discrepancies.forEach((d) => {
+      if (d.field === "image_quality" || d.message?.includes("Image Quality")) {
+        if (!qualityWarnings.includes(d.message)) {
+          qualityWarnings.push(d.message);
+        }
+      }
+    });
+  }
+
+  const hasDiscrepancy = activeDiscrepancies.length > 0;
+
+  const handleAutoFixMath = () => {
+    if (items.length > 0) {
+      setSubtotal(parseFloat(calculatedItemsSum.toFixed(2)));
+      const newGrand = calculatedItemsSum - discount + tax + serviceCharge;
+      setTotal(parseFloat(newGrand.toFixed(2)));
+    } else {
+      setTotal(parseFloat(calculatedGrandTotal.toFixed(2)));
+    }
+  };
 
   const handleItemChange = (index: number, field: string, value: any) => {
     const updated = [...items];
@@ -288,6 +338,53 @@ export function ReviewForm({
 
       {/* Scrollable Form Body */}
       <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        {/* Prominent Bill Error / Discrepancy Banner */}
+        {hasDiscrepancy && (
+          <div className="p-4 rounded-xl bg-rose-50 border-2 border-rose-300 text-rose-900 shadow-xs space-y-2.5">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0" />
+                <h4 className="text-xs font-bold uppercase tracking-wider text-rose-900">
+                  {activeDiscrepancies.length} Errors / Discrepancies Detected in this Bill
+                </h4>
+              </div>
+              <button
+                type="button"
+                onClick={handleAutoFixMath}
+                className="text-[11px] font-bold bg-white hover:bg-rose-100 text-rose-800 border border-rose-300 px-2.5 py-1 rounded-md transition-colors cursor-pointer shrink-0"
+              >
+                ⚡ Auto-Fix Calculations
+              </button>
+            </div>
+            <ul className="text-xs space-y-1 list-disc list-inside text-rose-800">
+              {activeDiscrepancies.map((msg, i) => (
+                <li key={i} className="font-medium">
+                  {msg}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* Image Quality Warning Advisory Banner */}
+        {qualityWarnings.length > 0 && (
+          <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-300 text-amber-950 shadow-xs space-y-1.5">
+            <div className="flex items-center gap-2">
+              <span className="text-base">📷</span>
+              <h4 className="text-xs font-bold uppercase tracking-wider text-amber-900">
+                Image Quality Advisory
+              </h4>
+            </div>
+            <ul className="text-xs space-y-1 list-disc list-inside text-amber-800">
+              {qualityWarnings.map((warn, i) => (
+                <li key={i} className="font-medium">
+                  {warn}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         {/* Document Classification (Nature of Bill) */}
         <div className="bg-slate-50/70 p-3.5 rounded-lg border border-slate-200/80">
           <div className="flex items-center justify-between mb-1.5">
@@ -455,61 +552,83 @@ export function ReviewForm({
           </div>
 
           <div className="space-y-2">
-            {items.map((item, idx) => (
-              <div
-                key={idx}
-                onMouseEnter={() => item.bounding_box && onFieldFocus(`item_${idx}`, item.bounding_box)}
-                className="flex items-center gap-2 p-2.5 rounded-lg border border-slate-200 bg-slate-50/50 hover:bg-slate-50 transition-colors"
-              >
-                <div className="flex-1">
-                  <input
-                    type="text"
-                    value={item.name}
-                    onChange={(e) => handleItemChange(idx, "name", e.target.value)}
-                    className="w-full text-xs font-medium bg-white border border-slate-200 rounded px-2.5 py-1.5 text-slate-900"
-                    placeholder="Item name"
-                  />
-                </div>
-                <div className="w-16">
-                  <input
-                    type="number"
-                    step="any"
-                    value={item.quantity}
-                    onChange={(e) => handleItemChange(idx, "quantity", e.target.value)}
-                    className="w-full text-xs bg-white border border-slate-200 rounded px-2 py-1.5 text-slate-900 text-center"
-                    placeholder="Qty"
-                  />
-                </div>
-                <div className="w-24">
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={item.unit_price}
-                    onChange={(e) => handleItemChange(idx, "unit_price", e.target.value)}
-                    className="w-full text-xs bg-white border border-slate-200 rounded px-2 py-1.5 text-slate-900 text-right"
-                    placeholder="Unit Price"
-                  />
-                </div>
-                <div className="w-24">
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={item.line_total}
-                    onChange={(e) => handleItemChange(idx, "line_total", e.target.value)}
-                    className="w-full text-xs font-semibold bg-white border border-slate-200 rounded px-2 py-1.5 text-slate-900 text-right"
-                    placeholder="Total"
-                  />
-                </div>
-                <button
-                  type="button"
-                  onClick={() => handleRemoveItem(idx)}
-                  className="p-1.5 text-slate-400 hover:text-rose-600 rounded transition-colors"
-                  title="Remove item"
+            {items.map((item, idx) => {
+              const hasItemPriceError = Number(item.unit_price || 0) <= 0 || Number(item.line_total || 0) <= 0;
+              return (
+                <div
+                  key={idx}
+                  onMouseEnter={() => item.bounding_box && onFieldFocus(`item_${idx}`, item.bounding_box)}
+                  className={`flex items-center gap-2 p-2.5 rounded-lg border transition-colors ${
+                    hasItemPriceError
+                      ? "border-rose-300 bg-rose-50/60"
+                      : "border-slate-200 bg-slate-50/50 hover:bg-slate-50"
+                  }`}
                 >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            ))}
+                  <div className="flex-1">
+                    <input
+                      type="text"
+                      value={item.name}
+                      onChange={(e) => handleItemChange(idx, "name", e.target.value)}
+                      className={`w-full text-xs font-medium bg-white border rounded px-2.5 py-1.5 text-slate-900 ${
+                        hasItemPriceError ? "border-rose-300" : "border-slate-200"
+                      }`}
+                      placeholder="Item name"
+                    />
+                  </div>
+                  <div className="w-16">
+                    <input
+                      type="number"
+                      step="any"
+                      value={item.quantity}
+                      onChange={(e) => handleItemChange(idx, "quantity", e.target.value)}
+                      className="w-full text-xs bg-white border border-slate-200 rounded px-2 py-1.5 text-slate-900 text-center"
+                      placeholder="Qty"
+                    />
+                  </div>
+                  <div className="w-24">
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={item.unit_price}
+                      onChange={(e) => handleItemChange(idx, "unit_price", e.target.value)}
+                      className={`w-full text-xs bg-white border rounded px-2 py-1.5 text-right ${
+                        Number(item.unit_price || 0) <= 0
+                          ? "border-rose-400 bg-rose-50/70 text-rose-900 font-semibold"
+                          : "border-slate-200 text-slate-900"
+                      }`}
+                      placeholder="Unit Price"
+                    />
+                  </div>
+                  <div className="w-24">
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={item.line_total}
+                      onChange={(e) => handleItemChange(idx, "line_total", e.target.value)}
+                      className={`w-full text-xs font-semibold bg-white border rounded px-2 py-1.5 text-right ${
+                        Number(item.line_total || 0) <= 0
+                          ? "border-rose-400 bg-rose-50/70 text-rose-900"
+                          : "border-slate-200 text-slate-900"
+                      }`}
+                      placeholder="Total"
+                    />
+                  </div>
+                  {hasItemPriceError && (
+                    <span className="text-[10px] font-bold text-rose-700 bg-rose-100 border border-rose-300 px-1.5 py-0.5 rounded whitespace-nowrap">
+                      ⚠️ Missing Price
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveItem(idx)}
+                    className="p-1.5 text-slate-400 hover:text-rose-600 rounded transition-colors"
+                    title="Remove item"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              );
+            })}
 
             {items.length === 0 && (
               <p className="text-xs text-slate-400 italic py-2 text-center bg-slate-50 rounded-lg">
@@ -530,14 +649,20 @@ export function ReviewForm({
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200">
             <div>
-              <label className="text-[11px] font-medium text-slate-600 block mb-1">Subtotal</label>
+              <label className="text-[11px] font-medium text-slate-600 block mb-1">
+                Subtotal {!isSubtotalMatching && <span className="text-rose-600 font-bold">*Mismatch</span>}
+              </label>
               <input
                 type="number"
                 step="0.01"
                 value={subtotal}
                 onChange={(e) => setSubtotal(Number(e.target.value))}
                 onFocus={() => onFieldFocus("subtotal", initialData.subtotal.bounding_box)}
-                className="w-full text-xs bg-white border border-slate-200 rounded-lg px-3 py-2 text-slate-900 text-right font-medium"
+                className={`w-full text-xs rounded-lg px-3 py-2 text-right font-medium bg-white border ${
+                  !isSubtotalMatching
+                    ? "border-rose-400 bg-rose-50/50 text-rose-900 ring-1 ring-rose-300"
+                    : "border-slate-200 text-slate-900"
+                }`}
               />
             </div>
             <div>
@@ -562,7 +687,9 @@ export function ReviewForm({
               />
             </div>
             <div>
-              <label className="text-[11px] font-bold text-indigo-900 block mb-1">Grand Total *</label>
+              <label className="text-[11px] font-bold block mb-1 text-slate-900">
+                Grand Total * {!isGrandTotalMatching && <span className="text-rose-600 font-bold">⚠️ Error</span>}
+              </label>
               <input
                 type="number"
                 step="0.01"
@@ -570,7 +697,11 @@ export function ReviewForm({
                 value={total}
                 onChange={(e) => setTotal(Number(e.target.value))}
                 onFocus={() => onFieldFocus("total", initialData.total.bounding_box)}
-                className="w-full text-sm font-bold bg-white border-2 border-indigo-500 rounded-lg px-3 py-2 text-indigo-900 text-right"
+                className={`w-full text-sm font-bold rounded-lg px-3 py-2 text-right bg-white ${
+                  !isGrandTotalMatching
+                    ? "border-2 border-rose-500 bg-rose-50/60 text-rose-900"
+                    : "border-2 border-indigo-500 text-indigo-900"
+                }`}
               />
             </div>
           </div>

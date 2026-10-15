@@ -13,7 +13,8 @@ import {
   Tag,
   PenTool,
   UploadCloud,
-  FileText
+  FileText,
+  AlertTriangle
 } from "lucide-react";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
@@ -83,8 +84,38 @@ export default function DashboardPage() {
             </div>
           </div>
 
+          {/* Discrepancy Notification Alert if any incorrect bills exist */}
+          {!loading && (data?.incorrect_bills_count ?? 0) > 0 && (
+            <div className="p-4 bg-rose-50/90 border-2 border-rose-200 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-rose-900 shadow-xs">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-rose-100 flex items-center justify-center text-rose-600 shrink-0">
+                  <AlertTriangle className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-rose-950 text-sm">
+                    {isUrdu 
+                      ? `${data?.incorrect_bills_count} بلز میں غلطیاں / تضادات موجود ہیں`
+                      : `${data?.incorrect_bills_count} Bills with Calculation Discrepancies or Missing Prices`}
+                  </h4>
+                  <p className="text-xs text-rose-800 mt-0.5">
+                    {isUrdu
+                      ? "ان بلز میں حسابی رقم کا فرق یا اشیاء کی قیمتیں خالی درج ہیں۔ ان کا جائزہ لیں۔"
+                      : "These bills have line item sum mismatches or missing prices. Click to review and fix them."}
+                  </p>
+                </div>
+              </div>
+              <Link
+                href="/invoices?has_discrepancy=true"
+                className="shrink-0 font-bold bg-white hover:bg-rose-100 text-rose-700 border border-rose-300 px-3.5 py-2 rounded-xl transition-all inline-flex items-center gap-1.5 shadow-2xs self-start sm:self-auto cursor-pointer"
+              >
+                <span>{isUrdu ? "غلط بلز دیکھیں" : "Review Error Bills"}</span>
+                <ArrowUpRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+          )}
+
           {/* Top KPI Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
             {/* Card 1: Total Spending */}
             <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-2 hover:border-slate-300 hover:shadow-sm transition-all">
               <div className="flex items-center justify-between text-slate-500">
@@ -147,6 +178,28 @@ export default function DashboardPage() {
                 {t.dashboard.avgBill}: <strong className="text-slate-700 font-mono tabular-nums">{loading ? "..." : formatCurrency(data?.avg_bill_amount, data?.currency, language)}</strong>
               </p>
             </div>
+
+            {/* Card 5: Incorrect Bills Audit */}
+            <Link 
+              href="/invoices?has_discrepancy=true"
+              className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-2 hover:border-rose-300 hover:shadow-md transition-all group cursor-pointer block"
+            >
+              <div className="flex items-center justify-between text-slate-500">
+                <span className="text-xs font-bold uppercase tracking-wider text-rose-700">
+                  {isUrdu ? "غلط / تضاد بلز" : "Bills with Errors"}
+                </span>
+                <div className="p-2 bg-rose-50 text-rose-600 rounded-lg group-hover:bg-rose-100 transition-colors">
+                  <AlertTriangle className="w-4 h-4" />
+                </div>
+              </div>
+              <div className="text-2xl font-bold text-rose-700 tabular-nums font-mono">
+                {loading ? "..." : (data?.incorrect_bills_count ?? 0)}
+              </div>
+              <p className="text-[11px] text-rose-600 font-medium flex items-center justify-between">
+                <span>{isUrdu ? "آڈٹ ریکارڈ" : "Audit / Needs fix"}</span>
+                <ArrowUpRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+              </p>
+            </Link>
           </div>
 
           {/* Breakdown Section: Categories & Top Vendors */}

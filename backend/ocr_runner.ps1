@@ -1,6 +1,7 @@
 param(
     [Parameter(Mandatory=$true)]
-    [string]$ImagePath
+    [string]$ImagePath,
+    [switch]$AsJson
 )
 
 try {
@@ -28,7 +29,38 @@ try {
     }
     $ocrTask = $engine.RecognizeAsync($bitmap)
     $ocrResult = $asTaskGeneric.MakeGenericMethod([Windows.Media.Ocr.OcrResult]).Invoke($null, @($ocrTask)).Result
-    Write-Output $ocrResult.Text
+    if ($AsJson) {
+        $linesArr = @()
+        foreach ($line in $ocrResult.Lines) {
+            $wordsArr = @()
+            foreach ($w in $line.Words) {
+                $wordsArr += @{
+                    text = $w.Text
+                    x = [math]::Round($w.BoundingRect.X, 2)
+                    y = [math]::Round($w.BoundingRect.Y, 2)
+                    width = [math]::Round($w.BoundingRect.Width, 2)
+                    height = [math]::Round($w.BoundingRect.Height, 2)
+                }
+            }
+            $linesArr += @{
+                text = $line.Text
+                words = $wordsArr
+            }
+        }
+        $resultObj = @{
+            text = $ocrResult.Text
+            lines = $linesArr
+        }
+        Write-Output ($resultObj | ConvertTo-Json -Depth 5 -Compress)
+    } else {
+        if ($ocrResult.Lines) {
+            foreach ($line in $ocrResult.Lines) {
+                Write-Output $line.Text
+            }
+        } else {
+            Write-Output $ocrResult.Text
+        }
+    }
 } catch {
     Write-Error $_.Exception.Message
 }

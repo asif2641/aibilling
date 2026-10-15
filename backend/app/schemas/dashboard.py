@@ -45,3 +45,4 @@ class DashboardSummaryResponse(BaseModel):
 
     # Processing state counts
     status_counts: dict
+    incorrect_bills_count: int = 0

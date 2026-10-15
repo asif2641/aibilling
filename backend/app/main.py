@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.core.config import settings
-from app.core.database import engine, Base
+from app.core.database import engine, Base, ensure_database_schema
 import app.models # Ensure all models are registered
 from app.api.v1.api import api_router
 
@@ -14,6 +14,7 @@ async def lifespan(app: FastAPI):
     # Startup: ensure tables exist and directories are created
     os.makedirs(settings.STORAGE_LOCAL_PATH, exist_ok=True)
     Base.metadata.create_all(bind=engine)
+    ensure_database_schema(engine)
     yield
     # Shutdown logic if any
 

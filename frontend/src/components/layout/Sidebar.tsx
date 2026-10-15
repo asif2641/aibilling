@@ -13,7 +13,8 @@ import {
   LogOut, 
   PenTool,
   Sparkles,
-  X
+  X,
+  ShieldCheck
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { useEffect, useState } from "react";
@@ -29,6 +30,8 @@ export function Sidebar() {
   useEffect(() => {
     api.getMe().then(setUser).catch(() => {});
   }, []);
+
+  const isSuperAdmin = user?.role === "super_admin" || user?.is_superuser || user?.email === "asif2641@gmail.com";
 
   // Sidebar always stays in English per explicit requirement
   const navItems = [
@@ -117,9 +120,16 @@ export function Sidebar() {
             {user?.full_name ? user.full_name.charAt(0).toUpperCase() : "U"}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-semibold text-slate-900 truncate">
-              {user?.full_name || "User Account"}
-            </p>
+            <div className="flex items-center gap-1.5">
+              <p className="text-xs font-semibold text-slate-900 truncate">
+                {user?.full_name || "User Account"}
+              </p>
+              {isSuperAdmin && (
+                <span className="text-[9px] bg-purple-100 text-purple-700 font-black px-1 rounded border border-purple-200 shrink-0">
+                  SUPER
+                </span>
+              )}
+            </div>
             <p className="text-[11px] text-slate-500 truncate">{user?.email || "user@example.com"}</p>
           </div>
         </div>

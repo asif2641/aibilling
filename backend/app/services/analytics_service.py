@@ -122,6 +122,11 @@ class AnalyticsService:
             joinedload(Invoice.items)
         ).filter(Invoice.user_id == user_id).order_by(desc(Invoice.invoice_date)).limit(5).all()
 
+        incorrect_bills_count = db.query(func.count(Invoice.id)).filter(
+            Invoice.user_id == user_id,
+            Invoice.has_discrepancy == True
+        ).scalar() or 0
+
         return DashboardSummaryResponse(
             total_spending=total_spending,
             total_bills=total_bills,
@@ -133,7 +138,8 @@ class AnalyticsService:
             top_vendors=top_vendors,
             weekly_trend=weekly_trend,
             recent_invoices=recent_invoices,
-            status_counts=status_map
+            status_counts=status_map,
+            incorrect_bills_count=incorrect_bills_count
         )
 
     @staticmethod

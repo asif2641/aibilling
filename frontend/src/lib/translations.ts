@@ -16,6 +16,7 @@ export interface Translations {
     vendors: string;
     customers: string;
     reports: string;
+    staff: string;
     settings: string;
     signOut: string;
     newBadge: string;
@@ -55,6 +56,7 @@ export interface Translations {
     filter: string;
     exportCsv: string;
     exportExcel: string;
+    exportPdf: string;
     yes: string;
     no: string;
     or: string;
@@ -168,6 +170,23 @@ export interface Translations {
     manualBannerSub: string;
     manualBannerButton: string;
     recentUploadsTitle: string;
+    modeStandard: string;
+    modeMultiPart: string;
+    multiPartTitle: string;
+    multiPartSubtitle: string;
+    multiPartDropzoneHeading: string;
+    multiPartDropzoneSub: string;
+    stitchButton: string;
+    stitchingMessage: string;
+    partLabel: string;
+    moveUp: string;
+    moveDown: string;
+    removePart: string;
+    addMorePhotos: string;
+    partsCount: string;
+    takePhoto: string;
+    snapNextPart: string;
+    browseFiles: string;
   };
   // Review & Approval
   review: {
@@ -222,6 +241,7 @@ export interface Translations {
     noTransactions: string;
     exportCsv: string;
     exportExcel: string;
+    exportPdf: string;
   };
   // Vendors
   vendors: {
@@ -303,6 +323,7 @@ export const translations: Record<Language, Translations> = {
       vendors: "Vendors",
       customers: "Customers",
       reports: "Reports & Analytics",
+      staff: "Staff & Users",
       settings: "Settings",
       signOut: "Sign Out",
       newBadge: "New",
@@ -340,6 +361,7 @@ export const translations: Record<Language, Translations> = {
       filter: "Filter",
       exportCsv: "Export CSV",
       exportExcel: "Export Excel",
+      exportPdf: "Export PDF",
       yes: "Yes",
       no: "No",
       or: "or",
@@ -448,6 +470,23 @@ export const translations: Record<Language, Translations> = {
       manualBannerSub: "If you have paper slips, handwritten notes, or non-scannable receipts, record them instantly.",
       manualBannerButton: "Create Manual Bill →",
       recentUploadsTitle: "Recent Scans & Processing Status",
+      modeStandard: "Single / Batch Bills",
+      modeMultiPart: "Long Bill (Multi-Image)",
+      multiPartTitle: "Stitch Multi-Photo Bill Into 1 Document",
+      multiPartSubtitle: "Upload multiple photos of the SAME long bill (e.g. Page 1, Page 2, Part 1, Part 2). Our AI combines them seamlessly into a single bill.",
+      multiPartDropzoneHeading: "Select or drop photos of the same lengthy bill",
+      multiPartDropzoneSub: "Select photos in order (top to bottom). You can rearrange before scanning.",
+      stitchButton: "Combine & Scan as 1 Bill",
+      stitchingMessage: "Stitching photos vertically and running AI OCR...",
+      partLabel: "Part",
+      moveUp: "Move Up",
+      moveDown: "Move Down",
+      removePart: "Remove",
+      addMorePhotos: "+ Add More Photos",
+      partsCount: "photos selected",
+      takePhoto: "Take Photo (Camera)",
+      snapNextPart: "Snap Next Part",
+      browseFiles: "Browse Files",
     },
     review: {
       title: "Review & Verify Invoice",
@@ -500,6 +539,7 @@ export const translations: Record<Language, Translations> = {
       noTransactions: "No transactions recorded in this interval.",
       exportCsv: "Export CSV",
       exportExcel: "Export Excel",
+      exportPdf: "Export PDF",
     },
     vendors: {
       title: "Vendors Directory",
@@ -575,6 +615,7 @@ export const translations: Record<Language, Translations> = {
       vendors: "وینڈرز (فروشندگان)",
       customers: "کسٹمرز (گاہک)",
       reports: "رپورٹس و موازنہ",
+      staff: "اسٹاف اور یوزرز",
       settings: "ترتیبات (سیٹنگز)",
       signOut: "لاگ آؤٹ",
       newBadge: "نیا",
@@ -612,6 +653,7 @@ export const translations: Record<Language, Translations> = {
       filter: "فلٹر",
       exportCsv: "سی ایس وی ڈاؤن لوڈ",
       exportExcel: "ایکسل فائل ڈاؤن لوڈ",
+      exportPdf: "پی ڈی ایف رپورٹ ڈاؤن لوڈ",
       yes: "ہاں",
       no: "نہیں",
       or: "یا",
@@ -720,6 +762,23 @@ export const translations: Record<Language, Translations> = {
       manualBannerSub: "اگر آپ کے پاس ہاتھ سے لکھی ہوئی پرچی یا رسید ہے تو اسے دستی طور پر ریکارڈ کریں۔",
       manualBannerButton: "دستی بل بنائیں ←",
       recentUploadsTitle: "حالیہ اسکینز اور پراسیسنگ کیفیت",
+      modeStandard: "ایک یا متعدد الگ الگ بلز",
+      modeMultiPart: "طویل رسید / کثیر تصویری بل",
+      multiPartTitle: "ایک طویل بل کی متعدد تصاویر کو ملا کر 1 بل بنائیں",
+      multiPartSubtitle: "اگر ایک لمبا بل ہے تو اس کے اوپر، درمیان اور نیچے کی تمام تصاویر یہاں شامل کریں۔ سسٹم سب کو جوڑ کر ایک مکمل بل بنا دے گا۔",
+      multiPartDropzoneHeading: "ایک ہی طویل بل کی تمام تصاویر یہاں ڈالیں",
+      multiPartDropzoneSub: "تصاویر اوپر سے نیچے کی ترتیب میں ڈالیں۔ آپ ترتیب بعد میں بھی تبدیل کر سکتے ہیں۔",
+      stitchButton: "تمام تصاویر ملا کر 1 بل بنائیں اور اسکین کریں",
+      stitchingMessage: "تمام تصاویر کو ملا کر ایک مکمل بل بنایا جا رہا ہے اور ڈیٹا پڑھا جا رہا ہے...",
+      partLabel: "حصہ",
+      moveUp: "اوپر کریں",
+      moveDown: "نیچے کریں",
+      removePart: "ختم کریں",
+      addMorePhotos: "+ مزید تصاویر شامل کریں",
+      partsCount: "تصاویر منتخب ہو چکی ہیں",
+      takePhoto: "کیمرے سے تصویر لیں",
+      snapNextPart: "کیمرے سے اگلا حصہ کھینچیں",
+      browseFiles: "فائل منتخب کریں",
     },
     review: {
       title: "بل کا جائزہ اور تصدیق",
@@ -772,6 +831,7 @@ export const translations: Record<Language, Translations> = {
       noTransactions: "اس دورانیے میں کوئی بل ریکارڈ نہیں ہوا۔",
       exportCsv: "سی ایس وی ڈاؤن لوڈ",
       exportExcel: "ایکسل ڈاؤن لوڈ",
+      exportPdf: "پی ڈی ایف رپورٹ ڈاؤن لوڈ",
     },
     vendors: {
       title: "وینڈرز ڈائریکٹری",

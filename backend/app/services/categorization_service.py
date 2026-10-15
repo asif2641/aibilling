@@ -64,7 +64,8 @@ class CategorizationService:
             "keywords": [
                 "super store", "supermarket", "grocery", "mart", "cash & carry", 
                 "milk", "bread", "eggs", "flour", "sugar", "rice", "dal", 
-                "cooking oil", "vegetable", "fruit", "detergent", "soap", "shampoo"
+                "cooking oil", "vegetable", "fruit", "detergent", "soap", "shampoo",
+                "چکن", "چاول", "دال", "دودھ", "دہی", "انڈے", "راشن", "پرچی", "اچار", "عارف"
             ]
         },
         # Official Taxes & Government Invoices

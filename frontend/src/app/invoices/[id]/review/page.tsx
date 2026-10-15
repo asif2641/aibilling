@@ -6,9 +6,10 @@ import Link from "next/link";
 import { 
   ArrowLeft, 
   AlertCircle, 
-  Loader2,
-  Eye,
-  Edit3
+  Loader2, 
+  Eye, 
+  Edit3,
+  Layers
 } from "lucide-react";
 import { DocumentViewer } from "@/components/review/DocumentViewer";
 import { ReviewForm } from "@/components/review/ReviewForm";
@@ -118,9 +119,17 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string }>
           </Link>
           <div className="h-4 w-px bg-slate-200"></div>
           <div>
-            <h1 className="text-xs font-bold text-slate-900 truncate max-w-xs sm:max-w-md">
-              {t.review.title}: {document.original_filename}
-            </h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xs font-bold text-slate-900 truncate max-w-xs sm:max-w-md">
+                {t.review.title}: {document.original_filename}
+              </h1>
+              {document.page_count > 1 && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 shrink-0">
+                  <Layers className="w-3 h-3" />
+                  {isUrdu ? `${document.page_count} تصاویر ملا کر 1 بل` : `${document.page_count} Parts Stitched`}
+                </span>
+              )}
+            </div>
             <p className="text-[10px] text-slate-500">{t.review.subtitle}</p>
           </div>
         </div>

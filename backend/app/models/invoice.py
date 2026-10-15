@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone, date
 from decimal import Decimal
-from sqlalchemy import Column, String, Date, DateTime, ForeignKey, Text, Numeric, Float, JSON, Integer
+from sqlalchemy import Column, String, Date, DateTime, ForeignKey, Text, Numeric, Float, JSON, Integer, Boolean
 from sqlalchemy.orm import relationship
 from app.core.database import Base
 
@@ -36,6 +36,9 @@ class Invoice(Base):
     payment_method = Column(String(50), nullable=True)
     confidence_score = Column(Float, default=1.0, nullable=False)
     verification_status = Column(String(50), default="UNVERIFIED", nullable=False, index=True) # UNVERIFIED, VERIFIED, REJECTED
+    has_discrepancy = Column(Boolean, default=False, nullable=False, index=True)
+    discrepancy_count = Column(Integer, default=0, nullable=False)
+    discrepancy_notes = Column(JSON, default=list, nullable=False)
     custom_fields = Column(JSON, default=dict, nullable=False)
     notes = Column(Text, nullable=True)
     

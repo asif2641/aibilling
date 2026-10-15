@@ -2,7 +2,7 @@ import uuid
 from typing import List
 from decimal import Decimal
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, desc
 
 from app.core.database import get_db
@@ -32,6 +32,7 @@ def get_customers(
         ).all()
         total_invoices = len(invs)
         total_spend = sum((Decimal(str(i.total)) for i in invs), Decimal("0.00"))
+        incorrect_invoices = sum(1 for i in invs if i.has_discrepancy)
         sorted_invs = sorted(invs, key=lambda x: str(x.invoice_date), reverse=True)
         last_date = str(sorted_invs[0].invoice_date) if sorted_invs else None
 
@@ -45,6 +46,7 @@ def get_customers(
             updated_at=c.updated_at,
             total_invoices=total_invoices,
             total_spend=total_spend,
+            incorrect_invoices_count=incorrect_invoices,
             last_purchase_date=last_date
         ))
     return results
@@ -62,13 +64,18 @@ def get_customer(
     if not customer:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Customer not found")
 
-    invs = db.query(Invoice).filter(
+    invs = db.query(Invoice).options(
+        joinedload(Invoice.vendor),
+        joinedload(Invoice.category),
+        joinedload(Invoice.items)
+    ).filter(
         Invoice.customer_id == customer.id,
         Invoice.user_id == user_id
     ).order_by(desc(Invoice.invoice_date)).all()
 
     total_invoices = len(invs)
     total_spend = sum((Decimal(str(i.total)) for i in invs), Decimal("0.00"))
+    incorrect_invoices = sum(1 for i in invs if i.has_discrepancy)
     last_date = str(invs[0].invoice_date) if invs else None
 
     invoice_items = [
@@ -79,7 +86,14 @@ def get_customer(
             total=Decimal(str(i.total)),
             currency=i.currency,
             vendor_name=i.vendor.name if i.vendor else "Unknown",
-            status=i.verification_status
+            vendor_id=i.vendor_id,
+            status=i.verification_status,
+            category_name=i.category.name if i.category else None,
+            items_count=len(i.items) if i.items else 0,
+            notes=i.notes,
+            document_id=i.document_id,
+            has_discrepancy=bool(i.has_discrepancy),
+            discrepancy_notes=i.discrepancy_notes or []
         )
         for i in invs
     ]
@@ -94,6 +108,7 @@ def get_customer(
         updated_at=customer.updated_at,
         total_invoices=total_invoices,
         total_spend=total_spend,
+        incorrect_invoices_count=incorrect_invoices,
         last_purchase_date=last_date,
         invoices=invoice_items
     )

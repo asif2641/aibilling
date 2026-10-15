@@ -19,6 +19,8 @@ class Document(Base):
     status = Column(String(50), default="UPLOADED", nullable=False, index=True) 
     # Statuses: UPLOADED, PROCESSING, EXTRACTED, REVIEW_REQUIRED, VERIFIED, FAILED, ARCHIVED
     page_count = Column(Integer, default=1, nullable=False)
+    has_discrepancy = Column(Boolean, default=False, nullable=False, index=True)
+    discrepancy_notes = Column(JSON, default=list, nullable=False)
     processing_error = Column(Text, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)

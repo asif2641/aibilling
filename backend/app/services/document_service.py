@@ -19,7 +19,8 @@ from app.schemas.extraction import (
     ExtractedFieldSchema, 
     ExtractedItemSchema, 
     BoundingBoxSchema,
-    ValidationResultSchema
+    ValidationResultSchema,
+    DiscrepancySchema
 )
 
 logger = logging.getLogger(__name__)
@@ -82,6 +83,16 @@ class DocumentService:
         storage = get_storage_provider()
         await storage.upload(file_bytes, storage_key, mime_type)
 
+        # Determine initial page count (pypdf for PDFs)
+        pdf_pages = 1
+        if mime_type == "application/pdf":
+            try:
+                import pypdf
+                pdf_reader = pypdf.PdfReader(io.BytesIO(file_bytes))
+                pdf_pages = max(len(pdf_reader.pages), 1)
+            except Exception as pe:
+                logger.warning(f"Could not read PDF page count: {pe}")
+
         # 6. Create Document record
         doc = Document(
             id=doc_id,
@@ -93,9 +104,19 @@ class DocumentService:
             file_size=file_size,
             sha256_checksum=sha256,
             status="PROCESSING" if not is_dup else "REVIEW_REQUIRED",
-            page_count=1
+            page_count=pdf_pages
         )
         db.add(doc)
+
+        # Store page references for multi-page PDFs (PRD Section 18)
+        if mime_type == "application/pdf" and pdf_pages > 1:
+            for p_num in range(1, pdf_pages + 1):
+                db.add(DocumentPage(
+                    id=str(uuid.uuid4()),
+                    document_id=doc_id,
+                    page_number=p_num,
+                    image_storage_key=f"{storage_key}#page={p_num}"
+                ))
 
         # Audit log
         db.add(AuditLog(
@@ -110,8 +131,215 @@ class DocumentService:
 
         return doc, is_dup, existing_inv_id
 
+    @staticmethod
+    def stitch_images(image_bytes_list: List[bytes]) -> Tuple[bytes, str, int, int]:
+        """
+        Vertically stitches multiple image parts/pages of a long receipt or multi-page bill
+        into one continuous high-resolution composite image.
+        Returns: (stitched_bytes, mime_type, total_width, total_height)
+        """
+        from PIL import Image, ImageOps
+
+        opened_images = []
+        for b in image_bytes_list:
+            try:
+                img = Image.open(io.BytesIO(b))
+                img = ImageOps.exif_transpose(img)
+                if img.mode != "RGB":
+                    img = img.convert("RGB")
+                opened_images.append(img)
+            except Exception as e:
+                logger.error(f"Error opening image part for stitching: {e}")
+
+        if not opened_images:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Could not decode any valid images for stitching."
+            )
+
+        if len(opened_images) == 1:
+            out_buf = io.BytesIO()
+            opened_images[0].save(out_buf, format="JPEG", quality=95)
+            w, h = opened_images[0].size
+            return out_buf.getvalue(), "image/jpeg", w, h
+
+        # Determine target uniform width: use the maximum width among parts
+        target_width = max(img.width for img in opened_images)
+        target_width = max(min(target_width, 2400), 1000)
+
+        resized_images = []
+        total_height = 0
+        seam_height = 4  # subtle visual divider between parts
+
+        for idx, img in enumerate(opened_images):
+            aspect = img.height / img.width
+            new_height = int(target_width * aspect)
+            resized = img.resize((target_width, new_height), Image.Resampling.LANCZOS)
+            resized_images.append(resized)
+            total_height += new_height
+            if idx < len(opened_images) - 1:
+                total_height += seam_height
+
+        # Create composite canvas
+        composite = Image.new("RGB", (target_width, total_height), (240, 240, 240))
+        y_offset = 0
+
+        for idx, img in enumerate(resized_images):
+            composite.paste(img, (0, y_offset))
+            y_offset += img.height
+            if idx < len(resized_images) - 1:
+                y_offset += seam_height
+
+        out_buf = io.BytesIO()
+        composite.save(out_buf, format="JPEG", quality=95)
+        stitched_bytes = out_buf.getvalue()
+
+        return stitched_bytes, "image/jpeg", target_width, total_height
+
     @classmethod
-    async def process_extraction_pipeline(cls, document_id: str, db: Session):
+    async def ingest_multi_image_document(
+        cls,
+        user_id: str,
+        files: List[UploadFile],
+        db: Session
+    ) -> Tuple[Document, bool, Optional[str]]:
+        """
+        Ingest multiple images representing different sections/pages of ONE long bill.
+        Stitches them into a single continuous document, stores both composite and individual pages,
+        and creates a single unified Document entity.
+        """
+        if not files:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="At least one image file is required."
+            )
+
+        raw_parts = []
+        filenames = []
+        for f in files:
+            b = await f.read()
+            if len(b) > 0:
+                cls.verify_magic_bytes(b)
+                raw_parts.append(b)
+                filenames.append(f.filename or "part.jpg")
+
+        if not raw_parts:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="All uploaded files were empty."
+            )
+
+        # 1. Stitch into single continuous bill image
+        stitched_bytes, mime_type, target_width, total_height = cls.stitch_images(raw_parts)
+        stitched_size = len(stitched_bytes)
+
+        # 2. Check total size
+        max_bytes = settings.MAX_UPLOAD_SIZE_MB * 1024 * 1024
+        if stitched_size > max_bytes:
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail=f"Combined bill exceeds maximum allowed size of {settings.MAX_UPLOAD_SIZE_MB}MB."
+            )
+
+        # 3. Compute SHA-256 for the combined composite
+        sha256 = hashlib.sha256(stitched_bytes).hexdigest()
+
+        # 4. Duplicate check
+        is_dup, existing_inv_id, reason = ValidationService.check_duplicate(
+            db=db, user_id=user_id, checksum=sha256
+        )
+
+        # 5. Store composite document
+        doc_id = str(uuid.uuid4())
+        composite_key = f"{user_id}/{doc_id}_composite.jpg"
+        storage = get_storage_provider()
+        await storage.upload(stitched_bytes, composite_key, mime_type)
+
+        combined_filename = f"Combined_Bill_{len(raw_parts)}Pages_{doc_id[:8]}.jpg"
+        if filenames:
+            first_name = filenames[0].rsplit(".", 1)[0]
+            combined_filename = f"{first_name}_combined_{len(raw_parts)}parts.jpg"
+
+        doc = Document(
+            id=doc_id,
+            user_id=user_id,
+            storage_provider=settings.STORAGE_PROVIDER,
+            storage_key=composite_key,
+            original_filename=combined_filename,
+            mime_type=mime_type,
+            file_size=stitched_size,
+            sha256_checksum=sha256,
+            status="PROCESSING" if not is_dup else "REVIEW_REQUIRED",
+            page_count=len(raw_parts)
+        )
+        db.add(doc)
+        db.flush()
+
+        # 6. Store individual pages in DocumentPage table & storage
+        for idx, (part_b, fn) in enumerate(zip(raw_parts, filenames)):
+            part_key = f"{user_id}/{doc_id}_page_{idx+1}.jpg"
+            await storage.upload(part_b, part_key, "image/jpeg")
+            try:
+                p_img = Image.open(io.BytesIO(part_b))
+                pw, ph = p_img.size
+            except Exception:
+                pw, ph = None, None
+
+            db.add(DocumentPage(
+                id=str(uuid.uuid4()),
+                document_id=doc.id,
+                page_number=idx + 1,
+                image_storage_key=part_key,
+                width=pw,
+                height=ph
+            ))
+
+        db.add(AuditLog(
+            user_id=user_id,
+            action="UPLOAD_MULTI_IMAGE",
+            entity_type="document",
+            entity_id=doc_id,
+            after_state={
+                "filename": combined_filename,
+                "parts_count": len(raw_parts),
+                "composite_size": stitched_size
+            }
+        ))
+        db.commit()
+        db.refresh(doc)
+
+        return doc, is_dup, existing_inv_id
+
+    @classmethod
+    async def process_extraction_pipeline(cls, document_id: str, db: Optional[Session] = None):
+        session_created = False
+        if db is None:
+            from app.main import app
+            from app.core.database import get_db, SessionLocal
+            if get_db in app.dependency_overrides:
+                override = app.dependency_overrides[get_db]
+                db_gen = override()
+                db = next(db_gen)
+                session_created = False
+            else:
+                db = SessionLocal()
+                session_created = True
+
+        try:
+            await cls._run_extraction_pipeline(document_id, db)
+        except Exception as e:
+            logger.error(f"Unexpected error in process_extraction_pipeline for {document_id}: {e}")
+            try:
+                db.rollback()
+            except Exception:
+                pass
+            raise
+        finally:
+            if session_created and db is not None:
+                db.close()
+
+    @classmethod
+    async def _run_extraction_pipeline(cls, document_id: str, db: Session):
         doc = db.query(Document).filter(Document.id == document_id).first()
         if not doc:
             logger.error(f"Document {document_id} not found for extraction.")
@@ -126,33 +354,61 @@ class DocumentService:
             db.commit()
             return
 
-        # Preprocessing quality check (Pillow)
-        try:
-            if doc.mime_type.startswith("image/"):
-                img = Image.open(io.BytesIO(file_bytes))
-                doc.page_count = 1
-                # Optional blur check simulation / sanity
-                if img.width < 100 or img.height < 100:
-                    doc.processing_error = "Image resolution is extremely low; extraction may be inaccurate."
-        except Exception as e:
-            logger.warning(f"Image preprocessing warning: {e}")
+        # Preprocessing quality check (PRD Section 60: Image Quality Detection)
+        from app.services.image_quality_service import ImageQualityService
+        quality_res = ImageQualityService.evaluate_image(file_bytes, doc.mime_type)
 
-        # Local OCR check (for categorization, identification & verification)
+        if not quality_res.is_acceptable:
+            rejection_reason = "; ".join(quality_res.issues) if quality_res.issues else "Image quality is too poor for legible text extraction."
+            logger.warning(f"Rejecting document {doc.id} due to low quality: {rejection_reason}")
+            doc.status = "FAILED"
+            doc.processing_error = f"Image Quality Rejection: {rejection_reason}"
+            db.add(AuditLog(
+                user_id=doc.user_id,
+                action="QUALITY_REJECT",
+                entity_type="document",
+                entity_id=doc.id,
+                after_state={
+                    "quality_score": quality_res.quality_score,
+                    "issues": quality_res.issues,
+                    "metrics": quality_res.metrics
+                }
+            ))
+            db.commit()
+            return
+
+        # Local OCR / PDF text extraction check (PRD Section 18)
         ocr_text = ""
         try:
-            import os
-            file_disk_path = os.path.join(settings.STORAGE_LOCAL_PATH, doc.storage_key)
-            if not os.path.exists(file_disk_path) and hasattr(storage, "_get_full_path"):
-                file_disk_path = storage._get_full_path(doc.storage_key)
-            if not os.path.exists(file_disk_path):
-                base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-                file_disk_path = os.path.join(base_dir, "uploads", doc.storage_key)
+            from app.services.ocr_service import OCRService
+            if doc.mime_type == "application/pdf":
+                ocr_text, pdf_pages, page_texts = OCRService.extract_text_from_pdf(file_bytes)
+                if pdf_pages > 0 and doc.page_count != pdf_pages:
+                    doc.page_count = pdf_pages
+                    # Ensure page records exist for multi-page PDF
+                    if pdf_pages > 1:
+                        existing_p = db.query(DocumentPage).filter(DocumentPage.document_id == doc.id).count()
+                        if existing_p == 0:
+                            for p_num in range(1, pdf_pages + 1):
+                                db.add(DocumentPage(
+                                    id=str(uuid.uuid4()),
+                                    document_id=doc.id,
+                                    page_number=p_num,
+                                    image_storage_key=f"{doc.storage_key}#page={p_num}"
+                                ))
+            else:
+                import os
+                file_disk_path = os.path.join(settings.STORAGE_LOCAL_PATH, doc.storage_key)
+                if not os.path.exists(file_disk_path) and hasattr(storage, "_get_full_path"):
+                    file_disk_path = storage._get_full_path(doc.storage_key)
+                if not os.path.exists(file_disk_path):
+                    base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+                    file_disk_path = os.path.join(base_dir, "uploads", doc.storage_key)
 
-            if os.path.exists(file_disk_path):
-                from app.services.ocr_service import OCRService
-                ocr_text = OCRService.extract_text_from_file(file_disk_path)
+                if os.path.exists(file_disk_path):
+                    ocr_text = OCRService.extract_text_from_file(file_disk_path)
         except Exception as e:
-            logger.warning(f"OCR inspection warning: {e}")
+            logger.warning(f"OCR/PDF text inspection warning: {e}")
 
         # AI Extraction
         ai_provider = get_ai_provider()
@@ -242,6 +498,14 @@ class DocumentService:
             ))
 
         # 5. Custom fields stored as JSON
+        if quality_res and quality_res.metrics:
+            extraction.custom_fields["image_quality"] = {
+                "score": quality_res.quality_score,
+                "has_warning": quality_res.has_warning,
+                "issues": quality_res.issues,
+                "metrics": quality_res.metrics
+            }
+
         if extraction.custom_fields:
             db.add(ExtractionField(
                 document_id=doc.id,
@@ -266,13 +530,26 @@ class DocumentService:
                 confidence=1.0,
             ))
 
+        # Incorporate image quality warnings into validation discrepancies
+        if quality_res and quality_res.has_warning and quality_res.issues:
+            for issue in quality_res.issues:
+                validation.discrepancies.append(
+                    DiscrepancySchema(
+                        field="image_quality",
+                        message=f"Image Quality Warning: {issue}",
+                        severity="warning"
+                    )
+                )
+
         doc.status = "REVIEW_REQUIRED"
+        doc.has_discrepancy = (not validation.is_valid) or (quality_res is not None and quality_res.has_warning)
+        doc.discrepancy_notes = [d.message for d in validation.discrepancies]
         db.add(AuditLog(
             user_id=doc.user_id,
             action="EXTRACT",
             entity_type="document",
             entity_id=doc.id,
-            after_state={"document_type": doc.document_type, "is_valid": validation.is_valid}
+            after_state={"document_type": doc.document_type, "is_valid": validation.is_valid, "has_discrepancy": doc.has_discrepancy}
         ))
         db.commit()
         db.refresh(doc)
@@ -376,6 +653,17 @@ class DocumentService:
                 suggested_category_id=suggested_category_id
             )
             result.validation = ValidationService.validate_financial_arithmetic(result)
+            if document.discrepancy_notes:
+                for note in document.discrepancy_notes:
+                    if "Image Quality" in note or "quality" in note.lower():
+                        if not any(d.message == note for d in result.validation.discrepancies):
+                            result.validation.discrepancies.append(
+                                DiscrepancySchema(
+                                    field="image_quality",
+                                    message=note,
+                                    severity="warning"
+                                )
+                            )
             return result
 
         # If fields not in DB, extract now

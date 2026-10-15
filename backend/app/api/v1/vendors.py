@@ -1,15 +1,15 @@
 from typing import List
 from decimal import Decimal
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
-from sqlalchemy import func, desc
+from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import func, desc, case
 
 from app.core.database import get_db
 from app.core.security import get_current_user_id
 from app.models.vendor import Vendor, VendorAlias
 from app.models.invoice import Invoice
 from app.models.audit_log import AuditLog
-from app.schemas.vendor import VendorResponse, VendorMergeRequest
+from app.schemas.vendor import VendorResponse, VendorDetailResponse, VendorInvoiceItem, VendorMergeRequest
 
 router = APIRouter()
 
@@ -25,7 +25,8 @@ def get_vendors(
         stats = db.query(
             func.count(Invoice.id),
             func.coalesce(func.sum(Invoice.total), Decimal("0.00")),
-            func.max(Invoice.invoice_date)
+            func.max(Invoice.invoice_date),
+            func.sum(case((Invoice.has_discrepancy == True, 1), else_=0))
         ).filter(Invoice.vendor_id == v.id, Invoice.user_id == user_id).first()
 
         results.append(VendorResponse(
@@ -41,6 +42,7 @@ def get_vendors(
             strn=v.strn,
             total_invoices=stats[0] or 0,
             total_spend=stats[1] or Decimal("0.00"),
+            incorrect_invoices_count=int(stats[3] or 0),
             last_invoice_date=stats[2].isoformat() if stats[2] else None,
             created_at=v.created_at
         ))
@@ -48,7 +50,7 @@ def get_vendors(
     results.sort(key=lambda x: x.total_spend, reverse=True)
     return results
 
-@router.get("/{vendor_id}", response_model=VendorResponse)
+@router.get("/{vendor_id}", response_model=VendorDetailResponse)
 def get_vendor(
     vendor_id: str,
     user_id: str = Depends(get_current_user_id),
@@ -58,13 +60,41 @@ def get_vendor(
     if not v:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Vendor not found")
 
-    stats = db.query(
-        func.count(Invoice.id),
-        func.coalesce(func.sum(Invoice.total), Decimal("0.00")),
-        func.max(Invoice.invoice_date)
-    ).filter(Invoice.vendor_id == v.id, Invoice.user_id == user_id).first()
+    invs = db.query(Invoice).options(
+        joinedload(Invoice.customer),
+        joinedload(Invoice.category),
+        joinedload(Invoice.items)
+    ).filter(
+        Invoice.vendor_id == v.id, 
+        Invoice.user_id == user_id
+    ).order_by(desc(Invoice.invoice_date)).all()
 
-    return VendorResponse(
+    total_invoices = len(invs)
+    total_spend = sum((Decimal(str(i.total)) for i in invs), Decimal("0.00"))
+    incorrect_invoices = sum(1 for i in invs if i.has_discrepancy)
+    last_invoice_date = str(invs[0].invoice_date) if invs else None
+
+    invoice_items = [
+        VendorInvoiceItem(
+            id=i.id,
+            invoice_number=i.invoice_number,
+            invoice_date=str(i.invoice_date),
+            total=Decimal(str(i.total)),
+            currency=i.currency,
+            customer_name=i.customer.name if i.customer else None,
+            customer_id=i.customer_id,
+            status=i.verification_status,
+            category_name=i.category.name if i.category else None,
+            items_count=len(i.items) if i.items else 0,
+            notes=i.notes,
+            document_id=i.document_id,
+            has_discrepancy=bool(i.has_discrepancy),
+            discrepancy_notes=i.discrepancy_notes or []
+        )
+        for i in invs
+    ]
+
+    return VendorDetailResponse(
         id=v.id,
         name=v.name,
         normalized_name=v.normalized_name,
@@ -75,10 +105,12 @@ def get_vendor(
         tax_id=v.tax_id,
         ntn=v.ntn,
         strn=v.strn,
-        total_invoices=stats[0] or 0,
-        total_spend=stats[1] or Decimal("0.00"),
-        last_invoice_date=stats[2].isoformat() if stats[2] else None,
-        created_at=v.created_at
+        total_invoices=total_invoices,
+        total_spend=total_spend,
+        incorrect_invoices_count=incorrect_invoices,
+        last_invoice_date=last_invoice_date,
+        created_at=v.created_at,
+        invoices=invoice_items
     )
 
 @router.post("/merge", status_code=status.HTTP_200_OK)
